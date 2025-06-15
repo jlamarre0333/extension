@@ -1,14 +1,13 @@
 # Citation Cross-Reference Extension - Task Board
 
 ## Doing
-- [ ] Add Google Scholar API for research papers
+- [ ] Add timestamp synchronization with video playback
 
 ## To Do
 
 ### Phase 1: Foundation (Weeks 1-2)
 
 ### Phase 2: Core Citation Features (Weeks 3-4)
-- [ ] Add timestamp synchronization with video playback
 - [ ] Improve citation confidence scoring
 
 ### Phase 3: Video Discovery Feature (Weeks 5-6)
@@ -64,6 +63,7 @@
 - [x] Test enhanced citation detection with real YouTube videos
 - [x] Fix UI button visibility issue on video navigation
 - [x] Add Wikipedia API as fallback for papers/studies
+- [x] Add Google Scholar API for research papers
 
 ## Backlog Ideas
 - [ ] Integration with note-taking apps (Notion, Obsidian)

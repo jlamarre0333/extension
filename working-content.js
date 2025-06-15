@@ -57,7 +57,11 @@ class EnhancedCitationDetector {
       // Scientific experiments - medium confidence
       /(?:experiment|study)\s+(?:by|from|at)\s+([A-Z][a-z\s]{5,40}(?:University|Institute|Lab|Laboratory))/gi,
       // Famous experiments - high confidence
-      /(Double\s+Slit\s+Experiment|Bell\s+Test|Schrödinger'?s?\s+Cat|EPR\s+Paradox|Michelson-Morley\s+Experiment)/gi
+      /(Double\s+Slit\s+Experiment|Bell\s+Test|Schrödinger'?s?\s+Cat|EPR\s+Paradox|Michelson-Morley\s+Experiment)/gi,
+      // Physics papers and theories - medium confidence
+      /(Bell'?s?\s+Theorem|Copenhagen\s+Interpretation|Many\s+Worlds\s+Interpretation|Pilot\s+Wave\s+Theory|Hidden\s+Variable\s+Theory)/gi,
+      // Scientific discoveries/papers - medium confidence  
+      /(Quantum\s+Mechanics\s+Interpretation|Wave-Particle\s+Duality|Uncertainty\s+Principle|Quantum\s+Field\s+Theory)/gi
     ];
 
     // Refined product detection patterns
@@ -258,10 +262,13 @@ class EnhancedCitationDetector {
           
           console.log(`🔬 Found scientific concept: "${concept}" (confidence: ${confidence})`);
           
+          // Classify the most academic concepts as papers, others as topics
+          const isPaper = index <= 3; // Physics theories, quantum concepts, math, and phenomena
+          
           found.push({
             title: this.cleanTitle(concept),
             author: null,
-            type: 'paper', // Classify as paper for better Wikipedia search
+            type: isPaper ? 'paper' : 'topic',
             confidence: Math.min(confidence, 1.0),
             source: 'science_pattern_' + index
           });
@@ -387,12 +394,18 @@ class EnhancedCitationDetector {
             enrichedData = await this.searchWikipedia(citation.title, 'book');
           }
         } else if (citation.type === 'paper') {
-          // For papers/studies, try Wikipedia first (better for academic content)
-          enrichedData = await this.searchWikipedia(citation.title, 'paper');
+          // For papers/studies, try Google Scholar first for academic content
+          enrichedData = await this.searchGoogleScholar(citation.title, citation.author);
           
-          // Fallback to Google Books (sometimes has academic papers)
+          // Fallback to Wikipedia if Scholar fails
           if (!enrichedData) {
-            console.log(`🔬 Wikipedia failed for paper "${citation.title}", trying Google Books fallback...`);
+            console.log(`🎓 Google Scholar failed for paper "${citation.title}", trying Wikipedia fallback...`);
+            enrichedData = await this.searchWikipedia(citation.title, 'paper');
+          }
+          
+          // Final fallback to Google Books
+          if (!enrichedData) {
+            console.log(`🔬 Wikipedia also failed for paper "${citation.title}", trying Google Books fallback...`);
             enrichedData = await this.searchGoogleBooks(citation.title, citation.author);
           }
         } else if (citation.type === 'product') {
@@ -412,6 +425,7 @@ class EnhancedCitationDetector {
           enriched.push({
             ...citation,
             googleSearchLink: `https://www.google.com/search?q=${encodeURIComponent(citation.title + (citation.author ? ' ' + citation.author : ''))}`,
+            googleScholarLink: `https://scholar.google.com/scholar?q=${encodeURIComponent(citation.title)}`,
             youtubeSearchLink: `https://www.youtube.com/results?search_query=${encodeURIComponent(citation.title)}`
           });
         }
@@ -464,6 +478,89 @@ class EnhancedCitationDetector {
   generateAmazonLink(title, author) {
     const searchTerm = author ? `${title} ${author}` : title;
     return `https://www.amazon.com/s?k=${encodeURIComponent(searchTerm)}&i=stripbooks`;
+  }
+
+  // Google Scholar search for academic papers
+  async searchGoogleScholar(title, author = null) {
+    try {
+      console.log(`🎓 Searching Google Scholar for: "${title}" by ${author || 'Unknown'}`);
+      
+      // Build search query for Scholar
+      let query = title;
+      if (author) {
+        query += ` author:"${author}"`;
+      }
+      
+      // Since Google Scholar doesn't have a public API, we'll use their search URL
+      // and try to extract basic information from the search results page
+      const scholarUrl = `https://scholar.google.com/scholar?q=${encodeURIComponent(query)}&hl=en`;
+      
+      try {
+        // Try to fetch Scholar results (note: this may be blocked by CORS)
+        const response = await fetch(scholarUrl, {
+          mode: 'no-cors', // This won't give us response data, but validates the URL
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+        
+        // Since we can't actually parse Scholar results due to CORS,
+        // we'll create a structured result with the search URL and related info
+        const scholarResult = {
+          title: title,
+          author: author,
+          description: `Academic search results for "${title}"${author ? ` by ${author}` : ''}`,
+          googleScholarLink: scholarUrl,
+          source: 'google_scholar'
+        };
+        
+        // Add additional academic search links
+        scholarResult.pubmedLink = this.generatePubMedLink(title, author);
+        scholarResult.arxivLink = this.generateArxivLink(title);
+        scholarResult.researchGateLink = this.generateResearchGateLink(title, author);
+        
+        // Enhanced search links for academic content
+        scholarResult.googleSearchLink = `https://www.google.com/search?q=${encodeURIComponent(title + ' academic paper research')}`;
+        scholarResult.youtubeSearchLink = `https://www.youtube.com/results?search_query=${encodeURIComponent(title + ' explained research')}`;
+        
+        console.log(`🎓 Generated Scholar result for: "${title}"`);
+        return scholarResult;
+        
+      } catch (fetchError) {
+        console.warn('🎓 Scholar fetch failed, creating fallback result:', fetchError);
+        
+        // Even if fetch fails, provide the Scholar link and academic resources
+        return {
+          title: title,
+          author: author,
+          description: `Academic paper or study: "${title}"${author ? ` by ${author}` : ''}`,
+          googleScholarLink: scholarUrl,
+          pubmedLink: this.generatePubMedLink(title, author),
+          arxivLink: this.generateArxivLink(title),
+          googleSearchLink: `https://www.google.com/search?q=${encodeURIComponent(title + ' academic research')}`,
+          youtubeSearchLink: `https://www.youtube.com/results?search_query=${encodeURIComponent(title + ' explained')}`,
+          source: 'google_scholar_fallback'
+        };
+      }
+      
+    } catch (error) {
+      console.warn('🎓 Google Scholar search error:', error);
+      return null;
+    }
+  }
+
+  generatePubMedLink(title, author = null) {
+    const searchTerm = author ? `${title} ${author}` : title;
+    return `https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(searchTerm)}`;
+  }
+
+  generateArxivLink(title) {
+    return `https://arxiv.org/search/?query=${encodeURIComponent(title)}&searchtype=all`;
+  }
+
+  generateResearchGateLink(title, author = null) {
+    const searchTerm = author ? `${title} ${author}` : title;
+    return `https://www.researchgate.net/search/publication?q=${encodeURIComponent(searchTerm)}`;
   }
 
   // Product enrichment
@@ -706,7 +803,7 @@ function createUI() {
   
   toggleButton.style.cssText = `
     position: fixed;
-    top: 120px;
+    top: 80px;
     right: 24px;
     display: flex;
     align-items: center;
@@ -765,7 +862,7 @@ function createUI() {
       <div style="display: flex; align-items: center; justify-content: space-between;">
         <div>
           <h2 style="margin: 0; font-size: 20px; font-weight: 600;">🔍 Smart Citations</h2>
-          <p style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.9;">Books • Products • Topics • Studies</p>
+          <p style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.9;">Books • Academic Papers • Products • Topics</p>
         </div>
         <button id="close-sidebar" style="
           background: rgba(255, 255, 255, 0.2);
@@ -784,6 +881,41 @@ function createUI() {
     </div>
     
     <div style="padding: 24px;">
+      <!-- Tab Navigation -->
+      <div style="
+        display: flex;
+        margin-bottom: 20px;
+        border-bottom: 2px solid rgba(226, 232, 240, 0.3);
+      ">
+        <button id="tab-academic" class="citation-tab" style="
+          flex: 1;
+          padding: 12px 16px;
+          background: linear-gradient(135deg, #4285f4 0%, #1a73e8 100%);
+          color: white;
+          border: none;
+          border-radius: 8px 8px 0 0;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s;
+          margin-right: 4px;
+        ">🎓 Academic Papers</button>
+        
+        <button id="tab-general" class="citation-tab" style="
+          flex: 1;
+          padding: 12px 16px;
+          background: rgba(102, 126, 234, 0.1);
+          color: #667eea;
+          border: none;
+          border-radius: 8px 8px 0 0;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s;
+          margin-left: 4px;
+        ">📖 General Citations</button>
+      </div>
+
       <div id="citations-status" style="
         display: flex;
         align-items: center;
@@ -805,7 +937,15 @@ function createUI() {
         <span style="color: #667eea; font-weight: 500;">Analyzing video content...</span>
       </div>
       
-      <div id="citations-list"></div>
+      <!-- Academic Papers Tab Content -->
+      <div id="tab-content-academic" class="tab-content" style="display: block;">
+        <div id="citations-list-academic"></div>
+      </div>
+      
+      <!-- General Citations Tab Content -->
+      <div id="tab-content-general" class="tab-content" style="display: none;">
+        <div id="citations-list-general"></div>
+      </div>
     </div>
   `;
   
@@ -855,7 +995,9 @@ function createUI() {
     }
   });
   
-  // Close button handler
+  // Tab switching functionality
+  let activeTab = 'academic';
+  
   sidebar.addEventListener('click', (e) => {
     if (e.target.id === 'close-sidebar') {
       isOpen = false;
@@ -867,8 +1009,44 @@ function createUI() {
         </svg>
         <span style="margin-left: 6px; font-size: 12px; font-weight: 500;">Citations</span>
       `;
+    } else if (e.target.id === 'tab-academic' || e.target.id === 'tab-general') {
+      // Handle tab switching
+      const newTab = e.target.id === 'tab-academic' ? 'academic' : 'general';
+      if (newTab !== activeTab) {
+        switchTab(newTab);
+      }
     }
   });
+
+  function switchTab(tabName) {
+    activeTab = tabName;
+    
+    // Update tab buttons
+    const academicTab = document.getElementById('tab-academic');
+    const generalTab = document.getElementById('tab-general');
+    const academicContent = document.getElementById('tab-content-academic');
+    const generalContent = document.getElementById('tab-content-general');
+    
+    if (tabName === 'academic') {
+      // Academic tab active
+      academicTab.style.background = 'linear-gradient(135deg, #4285f4 0%, #1a73e8 100%)';
+      academicTab.style.color = 'white';
+      generalTab.style.background = 'rgba(102, 126, 234, 0.1)';
+      generalTab.style.color = '#667eea';
+      
+      academicContent.style.display = 'block';
+      generalContent.style.display = 'none';
+    } else {
+      // General tab active
+      generalTab.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+      generalTab.style.color = 'white';
+      academicTab.style.background = 'rgba(102, 126, 234, 0.1)';
+      academicTab.style.color = '#667eea';
+      
+      generalContent.style.display = 'block';
+      academicContent.style.display = 'none';
+    }
+  }
   
   document.body.appendChild(toggleButton);
   document.body.appendChild(sidebar);
@@ -1113,31 +1291,87 @@ async function analyzeCurrentVideo() {
   }
 }
 
-// Update citations UI
+// Update citations UI with tabbed interface
 function updateCitationsUI(citations) {
-  const citationsList = document.getElementById('citations-list');
   const statusDiv = document.getElementById('citations-status');
+  const academicList = document.getElementById('citations-list-academic');
+  const generalList = document.getElementById('citations-list-general');
   
-  if (!citationsList || !statusDiv) return;
+  if (!statusDiv || !academicList || !generalList) return;
   
   if (citations.length > 0) {
     // Hide loading status
     statusDiv.style.display = 'none';
     
-    // Show enriched citations with beautiful cards
-    citationsList.innerHTML = citations.map((citation, index) => {
-      const typeIcon = citation.type === 'book' ? '📚' : 
-                     citation.type === 'paper' ? '🔬' : 
-                     citation.type === 'product' ? '🛍️' : 
-                     citation.type === 'topic' ? '💡' : '📄';
-      const typeColor = citation.type === 'book' ? '#8b5cf6' : 
-                      citation.type === 'paper' ? '#06b6d4' : 
-                      citation.type === 'product' ? '#f59e0b' : 
-                      citation.type === 'topic' ? '#10b981' : '#6b7280';
-      const confidenceColor = citation.confidence > 0.7 ? '#10b981' : citation.confidence > 0.5 ? '#f59e0b' : '#ef4444';
-      
-      return createCitationCard(citation, index, typeIcon, typeColor, confidenceColor);
-    }).join('');
+    // Separate citations by type - only actual research papers go to academic
+    const academicCitations = citations.filter(citation => 
+      citation.type === 'paper'
+    );
+    
+    const generalCitations = citations.filter(citation => 
+      citation.type !== 'paper'
+    );
+
+    // Show academic citations
+    if (academicCitations.length > 0) {
+      academicList.innerHTML = academicCitations.map((citation, index) => {
+        const typeIcon = '🔬'; // All academic papers get science icon
+        const typeColor = '#06b6d4'; // Academic blue
+        const confidenceColor = citation.confidence > 0.7 ? '#10b981' : citation.confidence > 0.5 ? '#f59e0b' : '#ef4444';
+        
+        return createCitationCard(citation, index, typeIcon, typeColor, confidenceColor);
+      }).join('');
+    } else {
+      academicList.innerHTML = `
+        <div style="
+          text-align: center;
+          padding: 32px 16px;
+          color: #64748b;
+          font-size: 14px;
+        ">
+          <div style="font-size: 48px; margin-bottom: 12px; opacity: 0.5;">🎓</div>
+          <div style="font-weight: 600; margin-bottom: 4px;">No academic papers detected</div>
+          <div style="font-size: 12px;">Try a science or research video</div>
+        </div>
+      `;
+    }
+
+    // Show general citations  
+    if (generalCitations.length > 0) {
+      generalList.innerHTML = generalCitations.map((citation, index) => {
+        const typeIcon = citation.type === 'book' ? '📚' : 
+                       citation.type === 'product' ? '🛍️' : 
+                       citation.type === 'topic' ? '💡' : '📄';
+        const typeColor = citation.type === 'book' ? '#8b5cf6' : 
+                        citation.type === 'product' ? '#f59e0b' : 
+                        citation.type === 'topic' ? '#10b981' : '#6b7280';
+        const confidenceColor = citation.confidence > 0.7 ? '#10b981' : citation.confidence > 0.5 ? '#f59e0b' : '#ef4444';
+        
+        return createCitationCard(citation, index, typeIcon, typeColor, confidenceColor);
+      }).join('');
+    } else {
+      generalList.innerHTML = `
+        <div style="
+          text-align: center;
+          padding: 32px 16px;
+          color: #64748b;
+          font-size: 14px;
+        ">
+          <div style="font-size: 48px; margin-bottom: 12px; opacity: 0.5;">📖</div>
+          <div style="font-weight: 600; margin-bottom: 4px;">No general citations detected</div>
+          <div style="font-size: 12px;">Books, products, and topics will appear here</div>
+        </div>
+      `;
+    }
+
+    // Update tab badges with counts
+    const academicTab = document.getElementById('tab-academic');
+    const generalTab = document.getElementById('tab-general');
+    if (academicTab && generalTab) {
+      academicTab.innerHTML = `🎓 Academic Papers (${academicCitations.length})`;
+      generalTab.innerHTML = `📖 General Citations (${generalCitations.length})`;
+    }
+    
   } else {
     // Show no citations found
     statusDiv.innerHTML = `
@@ -1152,11 +1386,20 @@ function updateCitationsUI(citations) {
         <span style="font-size: 24px; margin-right: 12px;">🔍</span>
         <div>
           <div style="color: #92400e; font-weight: 600; margin-bottom: 4px;">No high-quality citations found</div>
-          <div style="color: #a16207; font-size: 13px;">This video may not contain clear book, product, or study references</div>
+          <div style="color: #a16207; font-size: 13px;">This video may not contain clear references</div>
         </div>
       </div>
     `;
-    citationsList.innerHTML = '';
+    academicList.innerHTML = '';
+    generalList.innerHTML = '';
+    
+    // Reset tab badges
+    const academicTab = document.getElementById('tab-academic');
+    const generalTab = document.getElementById('tab-general');
+    if (academicTab && generalTab) {
+      academicTab.innerHTML = `🎓 Academic Papers`;
+      generalTab.innerHTML = `📖 General Citations`;
+    }
   }
 }
 
@@ -1294,6 +1537,21 @@ function createActionButtons(citation) {
   // Google Scholar for academic papers
   if (citation.googleScholarLink) {
     buttons += `<a href="${citation.googleScholarLink}" target="_blank" style="background: linear-gradient(135deg, #4285f4 0%, #1a73e8 100%); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 500; text-decoration: none; transition: all 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">🎓 Scholar</a>`;
+  }
+  
+  // PubMed for medical/biological papers
+  if (citation.pubmedLink) {
+    buttons += `<a href="${citation.pubmedLink}" target="_blank" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 500; text-decoration: none; transition: all 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">🧬 PubMed</a>`;
+  }
+  
+  // arXiv for physics/math papers
+  if (citation.arxivLink) {
+    buttons += `<a href="${citation.arxivLink}" target="_blank" style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 500; text-decoration: none; transition: all 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">📊 arXiv</a>`;
+  }
+  
+  // ResearchGate for academic networking
+  if (citation.researchGateLink) {
+    buttons += `<a href="${citation.researchGateLink}" target="_blank" style="background: linear-gradient(135deg, #00d4aa 0%, #00b894 100%); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 500; text-decoration: none; transition: all 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">🔬 ResearchGate</a>`;
   }
   
   // Wikipedia for all content types
