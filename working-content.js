@@ -61,6 +61,46 @@ class EnhancedCitationDetector {
       /(?:study|research|experiment)\s+([A-Z][^.!?]{10,60})/gi
     ];
 
+    // Product detection patterns
+    const productPatterns = [
+      // "I use the [Product]" or "I recommend [Product]"
+      /(?:I\s+use|I\s+recommend|I\s+love|I\s+bought|I\s+got)\s+(?:the\s+)?([A-Z][^.!?]{3,50})/gi,
+      // "Product is amazing/great"
+      /([A-Z][^.!?]{3,50})\s+is\s+(?:amazing|great|awesome|fantastic|incredible|perfect)/gi,
+      // "check out the [Product]"
+      /(?:check\s+out|try\s+out|get\s+the)\s+(?:the\s+)?([A-Z][^.!?]{3,50})/gi,
+      // Brand/model patterns
+      /(?:iPhone|iPad|MacBook|Samsung|Google|Microsoft|Sony|Canon|Nikon)\s+([A-Z0-9][^.!?]{2,30})/gi,
+      // "using [Product]" or "with [Product]"
+      /(?:using|with)\s+(?:the\s+)?([A-Z][^.!?]{3,50})/gi,
+      // "Product review" or "Product unboxing"
+      /([A-Z][^.!?]{3,50})\s+(?:review|unboxing|tutorial|setup|comparison)/gi,
+      // Price mentions
+      /([A-Z][^.!?]{3,50})\s+(?:costs?|priced?\s+at|\$[\d,]+)/gi,
+      // "available on Amazon/store"
+      /([A-Z][^.!?]{3,50})\s+(?:available\s+on|buy\s+on|get\s+it\s+on)\s+(?:Amazon|eBay|store)/gi
+    ];
+
+    // Major topic/concept patterns
+    const topicPatterns = [
+      // "learn about [Topic]"
+      /(?:learn\s+about|understand|master|explore)\s+([A-Z][^.!?]{5,60})/gi,
+      // "Topic is important/key"
+      /([A-Z][^.!?]{5,60})\s+is\s+(?:important|key|crucial|essential|fundamental)/gi,
+      // "introduction to [Topic]"
+      /(?:introduction\s+to|guide\s+to|basics\s+of)\s+([A-Z][^.!?]{5,60})/gi,
+      // "Topic explained" or "Topic tutorial"
+      /([A-Z][^.!?]{5,60})\s+(?:explained|tutorial|guide|course|training)/gi,
+      // "how to [Topic]"
+      /how\s+to\s+([^.!?]{5,60})/gi,
+      // "Topic for beginners"
+      /([A-Z][^.!?]{5,60})\s+for\s+beginners/gi,
+      // Technical concepts
+      /(?:concept\s+of|theory\s+of|principles\s+of)\s+([A-Z][^.!?]{5,60})/gi,
+      // "deep dive into [Topic]"
+      /(?:deep\s+dive\s+into|comprehensive\s+guide\s+to)\s+([A-Z][^.!?]{5,60})/gi
+    ];
+
     // Process book patterns
     bookPatterns.forEach((pattern, index) => {
       const matches = [...text.matchAll(pattern)];
@@ -131,6 +171,68 @@ class EnhancedCitationDetector {
       });
     });
 
+    // Process product patterns
+    productPatterns.forEach((pattern, index) => {
+      const matches = [...text.matchAll(pattern)];
+      console.log(`🛍️ Product pattern ${index} found ${matches.length} matches`);
+      
+      matches.forEach(match => {
+        const product = match[1];
+        
+        if (product && product.length >= 3 && product.length <= 50) {
+          let confidence = 0.5;
+          // Boost confidence for brand mentions
+          if (['iPhone', 'iPad', 'MacBook', 'Samsung', 'Google', 'Microsoft', 'Sony', 'Canon', 'Nikon'].some(brand => product.includes(brand))) {
+            confidence += 0.2;
+          }
+          // Boost for review/price context
+          if (index === 5 || index === 6 || index === 7) confidence += 0.15; // review, price, store patterns
+          // Boost for personal recommendations
+          if (index === 0) confidence += 0.1; // "I use/recommend" patterns
+          
+          console.log(`🛍️ Found potential product: "${product}" (confidence: ${confidence})`);
+          
+          found.push({
+            title: this.cleanTitle(product),
+            author: null,
+            type: 'product',
+            confidence: Math.min(confidence, 1.0),
+            source: 'product_pattern_' + index
+          });
+        }
+      });
+    });
+
+    // Process topic patterns
+    topicPatterns.forEach((pattern, index) => {
+      const matches = [...text.matchAll(pattern)];
+      console.log(`📚 Topic pattern ${index} found ${matches.length} matches`);
+      
+      matches.forEach(match => {
+        const topic = match[1];
+        
+        if (topic && topic.length >= 5 && topic.length <= 60) {
+          let confidence = 0.4;
+          // Boost for educational context
+          if (index === 0 || index === 2 || index === 3) confidence += 0.15; // learn, intro, explained patterns
+          // Boost for importance indicators
+          if (index === 1) confidence += 0.2; // "is important/key" pattern
+          // Boost for beginner content
+          if (index === 5) confidence += 0.1; // "for beginners" pattern
+          
+          console.log(`📚 Found potential topic: "${topic}" (confidence: ${confidence})`);
+          
+          found.push({
+            title: this.cleanTitle(topic),
+            author: null,
+            type: 'topic',
+            confidence: Math.min(confidence, 1.0),
+            source: 'topic_pattern_' + index
+          });
+        }
+      });
+    });
+
     // Remove duplicates and sort by confidence
     const unique = this.removeDuplicates(found);
     const sorted = unique.sort((a, b) => b.confidence - a.confidence);
@@ -163,29 +265,34 @@ class EnhancedCitationDetector {
     });
   }
 
-  // Google Books API integration
-  async enrichWithGoogleBooks(citations) {
-    console.log('📖 Enriching citations with Google Books data...');
+  // Enhanced API integration for all citation types
+  async enrichWithAPIs(citations) {
+    console.log('🔍 Enriching citations with API data...');
     const enriched = [];
     
     for (const citation of citations) {
-      if (citation.type === 'book') {
-        try {
-          const bookData = await this.searchGoogleBooks(citation.title, citation.author);
-          if (bookData) {
-            enriched.push({
-              ...citation,
-              ...bookData,
-              confidence: Math.min(citation.confidence + 0.1, 1.0) // Boost confidence if found
-            });
-          } else {
-            enriched.push(citation);
-          }
-        } catch (error) {
-          console.warn('Failed to enrich citation:', citation.title, error);
+      try {
+        let enrichedData = null;
+        
+        if (citation.type === 'book') {
+          enrichedData = await this.searchGoogleBooks(citation.title, citation.author);
+        } else if (citation.type === 'product') {
+          enrichedData = await this.enrichProduct(citation.title);
+        } else if (citation.type === 'topic') {
+          enrichedData = await this.searchWikipedia(citation.title);
+        }
+        
+        if (enrichedData) {
+          enriched.push({
+            ...citation,
+            ...enrichedData,
+            confidence: Math.min(citation.confidence + 0.1, 1.0) // Boost confidence if found
+          });
+        } else {
           enriched.push(citation);
         }
-      } else {
+      } catch (error) {
+        console.warn('Failed to enrich citation:', citation.title, error);
         enriched.push(citation);
       }
     }
@@ -233,6 +340,66 @@ class EnhancedCitationDetector {
   generateAmazonLink(title, author) {
     const searchTerm = author ? `${title} ${author}` : title;
     return `https://www.amazon.com/s?k=${encodeURIComponent(searchTerm)}&i=stripbooks`;
+  }
+
+  // Product enrichment
+  async enrichProduct(productName) {
+    try {
+      // For products, we'll create rich shopping links and basic info
+      return {
+        title: productName,
+        description: `Product mentioned in video: ${productName}`,
+        amazonLink: `https://www.amazon.com/s?k=${encodeURIComponent(productName)}`,
+        googleShoppingLink: `https://shopping.google.com/search?q=${encodeURIComponent(productName)}`,
+        ebayLink: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(productName)}`,
+        youtubeSearchLink: `https://www.youtube.com/results?search_query=${encodeURIComponent(productName + ' review')}`
+      };
+    } catch (error) {
+      console.warn('Product enrichment error:', error);
+      return null;
+    }
+  }
+
+  // Wikipedia API for topics
+  async searchWikipedia(topic) {
+    try {
+      // Wikipedia API search
+      const searchUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topic)}`;
+      
+      const response = await fetch(searchUrl);
+      if (!response.ok) {
+        // Try search API if direct page doesn't exist
+        const searchApiUrl = `https://en.wikipedia.org/w/api.php?action=query&format=json&list=search&srsearch=${encodeURIComponent(topic)}&origin=*`;
+        const searchResponse = await fetch(searchApiUrl);
+        const searchData = await searchResponse.json();
+        
+        if (searchData.query && searchData.query.search && searchData.query.search.length > 0) {
+          const firstResult = searchData.query.search[0];
+          return {
+            title: firstResult.title,
+            description: firstResult.snippet.replace(/<[^>]*>/g, ''), // Remove HTML tags
+            wikipediaLink: `https://en.wikipedia.org/wiki/${encodeURIComponent(firstResult.title)}`,
+            youtubeSearchLink: `https://www.youtube.com/results?search_query=${encodeURIComponent(firstResult.title + ' explained')}`,
+            googleSearchLink: `https://www.google.com/search?q=${encodeURIComponent(firstResult.title)}`
+          };
+        }
+        return null;
+      }
+      
+      const data = await response.json();
+      
+      return {
+        title: data.title || topic,
+        description: data.extract ? data.extract.substring(0, 200) + '...' : null,
+        thumbnail: data.thumbnail?.source || null,
+        wikipediaLink: data.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${encodeURIComponent(topic)}`,
+        youtubeSearchLink: `https://www.youtube.com/results?search_query=${encodeURIComponent(topic + ' explained')}`,
+        googleSearchLink: `https://www.google.com/search?q=${encodeURIComponent(topic)}`
+      };
+    } catch (error) {
+      console.warn('Wikipedia API error:', error);
+      return null;
+    }
   }
 }
 
@@ -308,8 +475,8 @@ function createUI() {
     ">
       <div style="display: flex; align-items: center; justify-content: space-between;">
         <div>
-          <h2 style="margin: 0; font-size: 20px; font-weight: 600;">📚 Citations & Sources</h2>
-          <p style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.9;">Discovered from video content</p>
+          <h2 style="margin: 0; font-size: 20px; font-weight: 600;">🔍 Smart Citations</h2>
+          <p style="margin: 4px 0 0 0; font-size: 14px; opacity: 0.9;">Books • Products • Topics • Studies</p>
         </div>
         <button id="close-sidebar" style="
           background: rgba(255, 255, 255, 0.2);
@@ -640,8 +807,8 @@ async function init() {
         const rawCitations = detector.detectCitations(text);
         console.log('📚 Found raw citations:', rawCitations);
         
-        // Enrich with Google Books data
-        const enrichedCitations = await detector.enrichWithGoogleBooks(rawCitations);
+        // Enrich with API data (Books, Products, Topics)
+        const enrichedCitations = await detector.enrichWithAPIs(rawCitations);
         console.log('📖 Enriched citations:', enrichedCitations);
         
         // Update UI
@@ -653,8 +820,14 @@ async function init() {
           
           // Show enriched citations with beautiful cards
           citationsList.innerHTML = enrichedCitations.map((citation, index) => {
-            const typeIcon = citation.type === 'book' ? '📚' : citation.type === 'paper' ? '🔬' : '📄';
-            const typeColor = citation.type === 'book' ? '#8b5cf6' : citation.type === 'paper' ? '#06b6d4' : '#10b981';
+            const typeIcon = citation.type === 'book' ? '📚' : 
+                           citation.type === 'paper' ? '🔬' : 
+                           citation.type === 'product' ? '🛍️' : 
+                           citation.type === 'topic' ? '💡' : '📄';
+            const typeColor = citation.type === 'book' ? '#8b5cf6' : 
+                            citation.type === 'paper' ? '#06b6d4' : 
+                            citation.type === 'product' ? '#f59e0b' : 
+                            citation.type === 'topic' ? '#10b981' : '#6b7280';
             const confidenceColor = citation.confidence > 0.7 ? '#10b981' : citation.confidence > 0.5 ? '#f59e0b' : '#ef4444';
             
             return `
@@ -769,7 +942,7 @@ async function init() {
                     font-weight: 500;
                   ">Citation #${index + 1}</span>
                   
-                  <div style="display: flex; gap: 8px;">
+                  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                     ${citation.googleBooksLink ? `
                       <a href="${citation.googleBooksLink}" target="_blank" style="
                         background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
@@ -783,6 +956,22 @@ async function init() {
                         transition: all 0.2s;
                       " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
                         📖 Google Books
+                      </a>
+                    ` : ''}
+                    
+                    ${citation.wikipediaLink ? `
+                      <a href="${citation.wikipediaLink}" target="_blank" style="
+                        background: linear-gradient(135deg, #000000 0%, #333333 100%);
+                        color: white;
+                        border: none;
+                        padding: 6px 12px;
+                        border-radius: 8px;
+                        font-size: 12px;
+                        font-weight: 500;
+                        text-decoration: none;
+                        transition: all 0.2s;
+                      " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                        📖 Wikipedia
                       </a>
                     ` : ''}
                     
@@ -802,7 +991,71 @@ async function init() {
                       </a>
                     ` : ''}
                     
-                    ${!citation.googleBooksLink && !citation.amazonLink ? `
+                    ${citation.googleShoppingLink ? `
+                      <a href="${citation.googleShoppingLink}" target="_blank" style="
+                        background: linear-gradient(135deg, #4285f4 0%, #0f9d58 100%);
+                        color: white;
+                        border: none;
+                        padding: 6px 12px;
+                        border-radius: 8px;
+                        font-size: 12px;
+                        font-weight: 500;
+                        text-decoration: none;
+                        transition: all 0.2s;
+                      " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                        🛍️ Shopping
+                      </a>
+                    ` : ''}
+                    
+                    ${citation.ebayLink ? `
+                      <a href="${citation.ebayLink}" target="_blank" style="
+                        background: linear-gradient(135deg, #0064d2 0%, #0053ba 100%);
+                        color: white;
+                        border: none;
+                        padding: 6px 12px;
+                        border-radius: 8px;
+                        font-size: 12px;
+                        font-weight: 500;
+                        text-decoration: none;
+                        transition: all 0.2s;
+                      " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                        🏪 eBay
+                      </a>
+                    ` : ''}
+                    
+                    ${citation.youtubeSearchLink ? `
+                      <a href="${citation.youtubeSearchLink}" target="_blank" style="
+                        background: linear-gradient(135deg, #ff0000 0%, #cc0000 100%);
+                        color: white;
+                        border: none;
+                        padding: 6px 12px;
+                        border-radius: 8px;
+                        font-size: 12px;
+                        font-weight: 500;
+                        text-decoration: none;
+                        transition: all 0.2s;
+                      " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                        📺 YouTube
+                      </a>
+                    ` : ''}
+                    
+                    ${citation.googleSearchLink ? `
+                      <a href="${citation.googleSearchLink}" target="_blank" style="
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        border: none;
+                        padding: 6px 12px;
+                        border-radius: 8px;
+                        font-size: 12px;
+                        font-weight: 500;
+                        text-decoration: none;
+                        transition: all 0.2s;
+                      " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                        🔍 Google
+                      </a>
+                    ` : ''}
+                    
+                    ${!citation.googleBooksLink && !citation.amazonLink && !citation.wikipediaLink && !citation.googleShoppingLink ? `
                       <button onclick="window.open('https://www.google.com/search?q=${encodeURIComponent(citation.title + (citation.author ? ' ' + citation.author : ''))}', '_blank')" style="
                         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                         color: white;
