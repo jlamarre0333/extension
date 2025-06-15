@@ -1,35 +1,238 @@
 // Working Content Script for YouTube Citation Cross-Reference
 console.log('🚀 Working content script loaded!');
 
-// Create a simple citation detector that works without external dependencies
-class SimpleCitationDetector {
+// Enhanced citation detector with better patterns and API integration
+class EnhancedCitationDetector {
   constructor() {
     this.citations = [];
+    this.googleBooksApiKey = 'AIzaSyBqOTz8QZ9X_8X8X8X8X8X8X8X8X8X8X8X'; // You'll need to get a real API key
   }
 
   detectCitations(text) {
-    const patterns = [
-      /(?:book|novel)\s+(?:called|titled)?\s*[""']([^""']+)[""']/gi,
-      /[""']([^""']{10,})[""']\s+by\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/gi,
-      /(?:study|research|paper)\s+(?:published\s+)?(?:in\s+)?([A-Z][^.!?]+)/gi
+    console.log('🔍 Analyzing text for citations...');
+    console.log('📄 Text sample (first 500 chars):', text.substring(0, 500));
+    console.log('📏 Total text length:', text.length);
+    
+    const found = [];
+    
+    // Enhanced book detection patterns
+    const bookPatterns = [
+      // "book called/titled 'Title'"
+      /(?:book|novel|memoir|biography)\s+(?:called|titled|named)\s*[""']([^""']{3,60})[""']/gi,
+      // "'Title' by Author"
+      /[""']([^""']{10,60})[""']\s+by\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/gi,
+      // "Author's book 'Title'"
+      /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)'s\s+(?:book|novel|work)\s+[""']([^""']{3,60})[""']/gi,
+      // "in his/her book 'Title'"
+      /in\s+(?:his|her|their)\s+book\s+[""']([^""']{3,60})[""']/gi,
+      // "the book 'Title'"
+      /the\s+book\s+[""']([^""']{3,60})[""']/gi,
+      // "Title (book title in italics context)"
+      /(?:read|reading|wrote|written|published)\s+[""']([^""']{10,60})[""']/gi,
+      // More flexible patterns
+      // "I recommend Title" or "check out Title"
+      /(?:recommend|suggest|check out|read)\s+(?:the\s+book\s+)?[""']?([A-Z][^""'.!?]{10,60})[""']?/gi,
+      // "Title is a great book"
+      /[""']?([A-Z][^""'.!?]{10,60})[""']?\s+is\s+a\s+(?:great|good|amazing|fantastic)\s+book/gi,
+      // "Author wrote Title"
+      /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+wrote\s+[""']?([^""'.!?]{10,60})[""']?/gi,
+      // Simple book mentions without quotes
+      /(?:book|novel)\s+([A-Z][^.!?]{10,60})/gi
     ];
 
-    const found = [];
-    patterns.forEach(pattern => {
+    // Research paper and study patterns
+    const paperPatterns = [
+      // "study published in Journal"
+      /(?:study|research|paper)\s+(?:published\s+)?(?:in\s+)?(?:the\s+)?([A-Z][^.!?]{10,80})/gi,
+      // "Journal of Something study"
+      /(Journal\s+of\s+[A-Z][^.!?]{5,50})\s+(?:study|research|paper)/gi,
+      // "Nature study" or "Science paper"
+      /(Nature|Science|Cell|PNAS|NEJM)\s+(?:study|research|paper|article)/gi,
+      // "researchers found" or "study shows"
+      /(?:researchers?|scientists?)\s+(?:found|discovered|showed|published)\s+(?:in\s+)?([A-Z][^.!?]{10,60})/gi,
+      // "according to a study"
+      /according\s+to\s+a\s+(?:study|research)\s+(?:in\s+)?([A-Z][^.!?]{10,60})/gi,
+      // More flexible study patterns
+      // "studies show" or "research indicates"
+      /(?:studies|research)\s+(?:show|shows|indicate|indicates|suggest|suggests)\s+(?:that\s+)?([^.!?]{15,80})/gi,
+      // "data shows" or "evidence suggests"
+      /(?:data|evidence)\s+(?:shows|suggests|indicates)\s+(?:that\s+)?([^.!?]{15,80})/gi,
+      // Simple study mentions
+      /(?:study|research|experiment)\s+([A-Z][^.!?]{10,60})/gi
+    ];
+
+    // Process book patterns
+    bookPatterns.forEach((pattern, index) => {
       const matches = [...text.matchAll(pattern)];
+      console.log(`📖 Pattern ${index} found ${matches.length} matches`);
+      
       matches.forEach(match => {
-        if (match[1] && match[1].length > 5) {
+        let title, author;
+        
+        if (index === 1) { // "'Title' by Author" pattern
+          title = match[1];
+          author = match[2];
+        } else if (index === 2) { // "Author's book 'Title'" pattern
+          title = match[2];
+          author = match[1];
+        } else if (index === 8) { // "Author wrote Title" pattern
+          title = match[2];
+          author = match[1];
+        } else {
+          title = match[1];
+          author = match[2] || null;
+        }
+
+        if (title && title.length >= 3 && title.length <= 100) {
+          // Calculate confidence based on pattern strength
+          let confidence = 0.5; // Start lower for flexible patterns
+          if (author) confidence += 0.2;
+          if (title.length > 10) confidence += 0.1;
+          if (/^[A-Z]/.test(title)) confidence += 0.1;
+          if (index <= 5) confidence += 0.1; // Boost for stricter patterns
+          
+          console.log(`📚 Found potential book: "${title}" by ${author || 'Unknown'} (confidence: ${confidence})`);
+          
           found.push({
-            title: match[1].trim(),
-            author: match[2]?.trim() || null,
-            type: pattern.source.includes('book') ? 'book' : 'study',
-            confidence: 0.8
+            title: this.cleanTitle(title),
+            author: author ? this.cleanAuthor(author) : null,
+            type: 'book',
+            confidence: Math.min(confidence, 1.0),
+            source: 'pattern_' + index
           });
         }
       });
     });
 
-    return found;
+    // Process paper patterns
+    paperPatterns.forEach((pattern, index) => {
+      const matches = [...text.matchAll(pattern)];
+      console.log(`🔬 Paper pattern ${index} found ${matches.length} matches`);
+      
+      matches.forEach(match => {
+        const title = match[1];
+        
+        if (title && title.length >= 10 && title.length <= 150) {
+          let confidence = 0.4; // Start lower for flexible patterns
+          if (title.includes('Journal')) confidence += 0.2;
+          if (['Nature', 'Science', 'Cell', 'PNAS', 'NEJM'].some(j => title.includes(j))) confidence += 0.3;
+          if (index <= 4) confidence += 0.1; // Boost for stricter patterns
+          
+          console.log(`🔬 Found potential study: "${title}" (confidence: ${confidence})`);
+          
+          found.push({
+            title: this.cleanTitle(title),
+            author: null,
+            type: 'paper',
+            confidence: Math.min(confidence, 1.0),
+            source: 'paper_pattern_' + index
+          });
+        }
+      });
+    });
+
+    // Remove duplicates and sort by confidence
+    const unique = this.removeDuplicates(found);
+    const sorted = unique.sort((a, b) => b.confidence - a.confidence);
+    
+    console.log(`📚 Found ${sorted.length} potential citations:`, sorted);
+    return sorted.slice(0, 10); // Limit to top 10
+  }
+
+  cleanTitle(title) {
+    return title
+      .replace(/^[""']+|[""']+$/g, '') // Remove quotes
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim();
+  }
+
+  cleanAuthor(author) {
+    return author
+      .replace(/^[""']+|[""']+$/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  removeDuplicates(citations) {
+    const seen = new Set();
+    return citations.filter(citation => {
+      const key = citation.title.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  // Google Books API integration
+  async enrichWithGoogleBooks(citations) {
+    console.log('📖 Enriching citations with Google Books data...');
+    const enriched = [];
+    
+    for (const citation of citations) {
+      if (citation.type === 'book') {
+        try {
+          const bookData = await this.searchGoogleBooks(citation.title, citation.author);
+          if (bookData) {
+            enriched.push({
+              ...citation,
+              ...bookData,
+              confidence: Math.min(citation.confidence + 0.1, 1.0) // Boost confidence if found
+            });
+          } else {
+            enriched.push(citation);
+          }
+        } catch (error) {
+          console.warn('Failed to enrich citation:', citation.title, error);
+          enriched.push(citation);
+        }
+      } else {
+        enriched.push(citation);
+      }
+    }
+    
+    return enriched;
+  }
+
+  async searchGoogleBooks(title, author = null) {
+    try {
+      // Build search query
+      let query = `intitle:"${title}"`;
+      if (author) {
+        query += `+inauthor:"${author}"`;
+      }
+      
+      // For demo purposes, we'll use a free endpoint (no API key required)
+      // In production, you'd want to use the official API with your key
+      const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=1`;
+      
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('API request failed');
+      
+      const data = await response.json();
+      
+      if (data.items && data.items.length > 0) {
+        const book = data.items[0].volumeInfo;
+        return {
+          title: book.title || title,
+          author: book.authors ? book.authors.join(', ') : author,
+          description: book.description ? book.description.substring(0, 200) + '...' : null,
+          thumbnail: book.imageLinks?.thumbnail || null,
+          publishedDate: book.publishedDate || null,
+          pageCount: book.pageCount || null,
+          googleBooksLink: data.items[0].volumeInfo.infoLink || null,
+          amazonLink: this.generateAmazonLink(book.title, book.authors?.[0])
+        };
+      }
+    } catch (error) {
+      console.warn('Google Books API error:', error);
+    }
+    
+    return null;
+  }
+
+  generateAmazonLink(title, author) {
+    const searchTerm = author ? `${title} ${author}` : title;
+    return `https://www.amazon.com/s?k=${encodeURIComponent(searchTerm)}&i=stripbooks`;
   }
 }
 
@@ -409,7 +612,7 @@ async function init() {
   const { sidebar } = createUI();
   
   // Initialize citation detector
-  const detector = new SimpleCitationDetector();
+  const detector = new EnhancedCitationDetector();
   
   // Get video text and analyze
   setTimeout(async () => {
@@ -417,21 +620,41 @@ async function init() {
       const text = await getVideoText();
       if (text) {
         console.log('📝 Analyzing text for citations...');
-        const citations = detector.detectCitations(text);
-        console.log('📚 Found citations:', citations);
+        
+        // Update status to show enrichment phase
+        const statusDiv = document.getElementById('citations-status');
+        statusDiv.innerHTML = `
+          <div class="loading-spinner" style="
+            width: 20px;
+            height: 20px;
+            border: 2px solid #e3f2fd;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 12px;
+          "></div>
+          <span style="color: #667eea; font-weight: 500;">Enriching citations with source data...</span>
+        `;
+        
+        // Detect citations
+        const rawCitations = detector.detectCitations(text);
+        console.log('📚 Found raw citations:', rawCitations);
+        
+        // Enrich with Google Books data
+        const enrichedCitations = await detector.enrichWithGoogleBooks(rawCitations);
+        console.log('📖 Enriched citations:', enrichedCitations);
         
         // Update UI
         const citationsList = document.getElementById('citations-list');
-        const statusDiv = document.getElementById('citations-status');
         
-        if (citations.length > 0) {
+        if (enrichedCitations.length > 0) {
           // Hide loading status
           statusDiv.style.display = 'none';
           
-          // Show citations with beautiful cards
-          citationsList.innerHTML = citations.map((citation, index) => {
-            const typeIcon = citation.type === 'book' ? '📚' : '🔬';
-            const typeColor = citation.type === 'book' ? '#8b5cf6' : '#06b6d4';
+          // Show enriched citations with beautiful cards
+          citationsList.innerHTML = enrichedCitations.map((citation, index) => {
+            const typeIcon = citation.type === 'book' ? '📚' : citation.type === 'paper' ? '🔬' : '📄';
+            const typeColor = citation.type === 'book' ? '#8b5cf6' : citation.type === 'paper' ? '#06b6d4' : '#10b981';
             const confidenceColor = citation.confidence > 0.7 ? '#10b981' : citation.confidence > 0.5 ? '#f59e0b' : '#ef4444';
             
             return `
@@ -454,6 +677,19 @@ async function init() {
                   height: 100%;
                   background: ${typeColor};
                 "></div>
+                
+                ${citation.thumbnail ? `
+                  <div style="display: flex; margin-bottom: 16px;">
+                    <img src="${citation.thumbnail}" style="
+                      width: 60px;
+                      height: 80px;
+                      object-fit: cover;
+                      border-radius: 8px;
+                      margin-right: 16px;
+                      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    " />
+                    <div style="flex: 1;">
+                ` : '<div>'}
                 
                 <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px;">
                   <div style="display: flex; align-items: center;">
@@ -492,12 +728,31 @@ async function init() {
                 
                 ${citation.author ? `
                   <p style="
-                    margin: 0 0 12px 0;
+                    margin: 0 0 8px 0;
                     font-size: 14px;
                     color: #64748b;
                     font-style: italic;
                   ">by ${citation.author}</p>
                 ` : ''}
+                
+                ${citation.publishedDate ? `
+                  <p style="
+                    margin: 0 0 8px 0;
+                    font-size: 12px;
+                    color: #94a3b8;
+                  ">Published: ${citation.publishedDate}</p>
+                ` : ''}
+                
+                ${citation.description ? `
+                  <p style="
+                    margin: 0 0 12px 0;
+                    font-size: 13px;
+                    color: #64748b;
+                    line-height: 1.4;
+                  ">${citation.description}</p>
+                ` : ''}
+                
+                ${citation.thumbnail ? '</div></div>' : '</div>'}
                 
                 <div style="
                   display: flex;
@@ -506,6 +761,7 @@ async function init() {
                   margin-top: 16px;
                   padding-top: 16px;
                   border-top: 1px solid rgba(226, 232, 240, 0.6);
+                  gap: 8px;
                 ">
                   <span style="
                     font-size: 12px;
@@ -513,19 +769,55 @@ async function init() {
                     font-weight: 500;
                   ">Citation #${index + 1}</span>
                   
-                  <button style="
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                    border: none;
-                    padding: 6px 12px;
-                    border-radius: 8px;
-                    font-size: 12px;
-                    font-weight: 500;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                  " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                    🔍 Lookup
-                  </button>
+                  <div style="display: flex; gap: 8px;">
+                    ${citation.googleBooksLink ? `
+                      <a href="${citation.googleBooksLink}" target="_blank" style="
+                        background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+                        color: white;
+                        border: none;
+                        padding: 6px 12px;
+                        border-radius: 8px;
+                        font-size: 12px;
+                        font-weight: 500;
+                        text-decoration: none;
+                        transition: all 0.2s;
+                      " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                        📖 Google Books
+                      </a>
+                    ` : ''}
+                    
+                    ${citation.amazonLink ? `
+                      <a href="${citation.amazonLink}" target="_blank" style="
+                        background: linear-gradient(135deg, #ff9900 0%, #ff6600 100%);
+                        color: white;
+                        border: none;
+                        padding: 6px 12px;
+                        border-radius: 8px;
+                        font-size: 12px;
+                        font-weight: 500;
+                        text-decoration: none;
+                        transition: all 0.2s;
+                      " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                        🛒 Amazon
+                      </a>
+                    ` : ''}
+                    
+                    ${!citation.googleBooksLink && !citation.amazonLink ? `
+                      <button onclick="window.open('https://www.google.com/search?q=${encodeURIComponent(citation.title + (citation.author ? ' ' + citation.author : ''))}', '_blank')" style="
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        border: none;
+                        padding: 6px 12px;
+                        border-radius: 8px;
+                        font-size: 12px;
+                        font-weight: 500;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                      " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                        🔍 Search
+                      </button>
+                    ` : ''}
+                  </div>
                 </div>
               </div>
             `;
@@ -553,6 +845,23 @@ async function init() {
       }
     } catch (error) {
       console.error('❌ Error analyzing video:', error);
+      const statusDiv = document.getElementById('citations-status');
+      statusDiv.innerHTML = `
+        <div style="
+          display: flex;
+          align-items: center;
+          padding: 16px;
+          background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+          border-radius: 12px;
+          border: 1px solid rgba(239, 68, 68, 0.2);
+        ">
+          <span style="font-size: 24px; margin-right: 12px;">⚠️</span>
+          <div>
+            <div style="color: #dc2626; font-weight: 600; margin-bottom: 4px;">Analysis failed</div>
+            <div style="color: #b91c1c; font-size: 13px;">Could not extract video content</div>
+          </div>
+        </div>
+      `;
     }
   }, 2000);
   
@@ -564,7 +873,7 @@ init().catch(console.error);
 
 // Make detector available globally for testing
 window.CitationCrossReference = {
-  detector: new SimpleCitationDetector(),
+  detector: new EnhancedCitationDetector(),
   initialized: true
 };
 
