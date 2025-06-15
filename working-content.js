@@ -26,6 +26,30 @@ class EnhancedCitationDetector {
     
     const found = [];
     
+    // Video/Documentary detection patterns
+    const videoPatterns = [
+      // "watch the documentary 'Title'" - high confidence
+      /(?:watch|see|check\s+out)\s+(?:the\s+)?(?:documentary|film|movie)\s+[""']([^""']{3,50})[""']/gi,
+      // "documentary called/titled 'Title'" - high confidence
+      /(?:documentary|film|movie)\s+(?:called|titled|named)\s+[""']([^""']{3,50})[""']/gi,
+      // "TED talk about/on 'Topic'" - high confidence
+      /(?:TED\s+talk|TED\s+video|TEDx)\s+(?:about|on|called)?\s*[""']?([^""']{3,50})[""']?/gi,
+      // "YouTube channel 'Name'" - high confidence
+      /(?:YouTube\s+channel|channel)\s+[""']([^""']{3,30})[""']/gi,
+      // "video series 'Title'" - high confidence
+      /(?:video\s+series|series)\s+[""']([^""']{3,40})[""']/gi,
+      // "Netflix/streaming documentary 'Title'" - high confidence
+      /(?:Netflix|Hulu|Amazon\s+Prime|Disney\+)\s+(?:series|documentary|show|film)\s+[""']([^""']{3,40})[""']/gi,
+      // "as shown in the video" - medium confidence
+      /(?:as\s+shown\s+in|featured\s+in|mentioned\s+in)\s+(?:the\s+)?(?:video|documentary|film)\s+[""']([^""']{3,40})[""']/gi,
+      // "Channel's video about" - medium confidence
+      /([A-Z][a-zA-Z\s]{3,25})'s\s+(?:video|documentary)\s+(?:about|on)\s+([^.!?]{5,40})/gi,
+      // "Cosmos series" or similar educational series - medium confidence
+      /(Cosmos|Planet\s+Earth|Blue\s+Planet|Our\s+Planet|Free\s+Solo|Won't\s+You\s+Be\s+My\s+Neighbor|The\s+Social\s+Dilemma)\s+(?:series|documentary|film)?/gi,
+      // Popular educational channels - medium confidence
+      /(?:Veritasium|Kurzgesagt|MinutePhysics|SciShow|Crash\s+Course|Khan\s+Academy|TED-Ed)\s+(?:video|channel|explains?)/gi
+    ];
+    
     // Refined book detection patterns (more precise)
     const bookPatterns = [
       // "book called/titled 'Title'" - high confidence
@@ -124,6 +148,42 @@ class EnhancedCitationDetector {
       // Famous scientists - medium confidence
       /(Einstein|Schrödinger|Heisenberg|Bohr|Feynman|Planck|Newton|Maxwell|Hawking|Bell)/gi
     ];
+
+    // Process video patterns
+    videoPatterns.forEach((pattern, index) => {
+      const matches = [...text.matchAll(pattern)];
+      console.log(`🎬 Video pattern ${index} found ${matches.length} matches`);
+      
+      matches.forEach(match => {
+        let title, channel;
+        
+        if (index === 7) { // "Channel's video about" pattern
+          channel = match[1];
+          title = match[2];
+        } else {
+          title = match[1];
+          channel = match[2] || null;
+        }
+
+        if (title && title.length >= 3 && title.length <= 60 && this.isValidVideoTitle(title)) {
+          // Calculate confidence based on pattern strength
+          let confidence = index <= 5 ? 0.8 : 0.6; // High confidence for first 6 patterns
+          if (channel) confidence += 0.1;
+          if (title.length > 10) confidence += 0.05;
+          if (this.hasVideoKeywords(title)) confidence += 0.1;
+          
+          console.log(`🎬 Found potential video: "${title}" by ${channel || 'Unknown'} (confidence: ${confidence})`);
+          
+          found.push({
+            title: this.cleanTitle(title),
+            author: channel ? this.cleanAuthor(channel) : null,
+            type: 'video',
+            confidence: Math.min(confidence, 1.0),
+            source: 'video_pattern_' + index
+          });
+        }
+      });
+    });
 
     // Process book patterns
     bookPatterns.forEach((pattern, index) => {
@@ -411,6 +471,41 @@ class EnhancedCitationDetector {
             scientificTerms.some(term => topicLower.includes(term)));
   }
 
+  isValidVideoTitle(title) {
+    // Filter out common false positives for video titles
+    const invalidPatterns = [
+      /^(this|that|these|those|here|there|now|then|today|tomorrow|yesterday)$/i,
+      /^(link|description|comment|like|subscribe|notification|bell)$/i,
+      /^(website|platform|app|software|program|system)$/i,
+      /^(part|episode|section|chapter)\s*\d*$/i,
+      /^\d+$/,  // Just numbers
+      /^[a-z\s]+$/,  // All lowercase (likely not a proper title)
+      /^(video|content|tutorial|guide|how|what|when|where|why)$/i, // Too generic
+    ];
+    
+    // Valid video content indicators
+    const validVideoKeywords = [
+      'documentary', 'series', 'film', 'movie', 'talk', 'lecture', 'course',
+      'explained', 'review', 'analysis', 'breakdown', 'deep dive', 'guide',
+      'tutorial', 'masterclass', 'workshop', 'seminar', 'presentation'
+    ];
+    
+    const titleLower = title.toLowerCase();
+    
+    return !invalidPatterns.some(pattern => pattern.test(title.trim())) &&
+           (title.length > 5 || validVideoKeywords.some(keyword => titleLower.includes(keyword)));
+  }
+
+  hasVideoKeywords(title) {
+    const videoKeywords = [
+      'documentary', 'film', 'movie', 'series', 'episode', 'talk', 'lecture',
+      'course', 'tutorial', 'guide', 'explained', 'review', 'analysis',
+      'breakdown', 'masterclass', 'workshop', 'seminar', 'presentation',
+      'interview', 'discussion', 'debate', 'panel', 'conference'
+    ];
+    return videoKeywords.some(keyword => title.toLowerCase().includes(keyword));
+  }
+
   // Enhanced API integration for all citation types
   async enrichWithAPIs(citations) {
     console.log('🔍 Enriching citations with API data...');
@@ -446,6 +541,8 @@ class EnhancedCitationDetector {
           }
         } else if (citation.type === 'product') {
           enrichedData = await this.enrichProduct(citation.title);
+        } else if (citation.type === 'video') {
+          enrichedData = await this.enrichVideo(citation.title, citation.author);
         } else if (citation.type === 'topic') {
           enrichedData = await this.searchWikipedia(citation.title, 'topic');
         }
@@ -612,6 +709,48 @@ class EnhancedCitationDetector {
       console.warn('Product enrichment error:', error);
       return null;
     }
+  }
+
+  // Video/Documentary enrichment
+  async enrichVideo(videoTitle, channel = null) {
+    try {
+      console.log(`🎬 Enriching video: "${videoTitle}" by ${channel || 'Unknown'}`);
+      
+      // Create search queries for different platforms
+      const searchQuery = channel ? `${videoTitle} ${channel}` : videoTitle;
+      
+      // Try to get basic information from Wikipedia if it's a well-known documentary/series
+      let wikiData = null;
+      if (this.isWellKnownContent(videoTitle)) {
+        wikiData = await this.searchWikipedia(videoTitle, 'video');
+      }
+      
+      const enrichedVideo = {
+        title: videoTitle,
+        author: channel,
+        description: wikiData?.description || `Video content: "${videoTitle}"${channel ? ` by ${channel}` : ''}`,
+        thumbnail: wikiData?.thumbnail || null,
+        youtubeSearchLink: `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`,
+        netflixSearchLink: `https://www.netflix.com/search?q=${encodeURIComponent(videoTitle)}`,
+        imdbSearchLink: `https://www.imdb.com/find?q=${encodeURIComponent(videoTitle)}&s=tt`,
+        googleSearchLink: `https://www.google.com/search?q=${encodeURIComponent(searchQuery + ' documentary film')}`
+      };
+      
+      return enrichedVideo;
+    } catch (error) {
+      console.warn('Video enrichment error:', error);
+      return null;
+    }
+  }
+
+  isWellKnownContent(title) {
+    const wellKnownContent = [
+      'cosmos', 'planet earth', 'blue planet', 'our planet', 'free solo',
+      'won\'t you be my neighbor', 'the social dilemma', 'blackfish', 'super size me',
+      'an inconvenient truth', 'march of the penguins', 'fahrenheit 9/11',
+      'bowling for columbine', 'sicko', 'food inc', 'the cove', 'gasland'
+    ];
+    return wellKnownContent.some(content => title.toLowerCase().includes(content));
   }
 
   // Enhanced Wikipedia API with academic paper support
@@ -872,6 +1011,18 @@ class EnhancedCitationDetector {
       'science_pattern_6': 0.8, // Institutions
       'science_pattern_7': 0.8, // Famous scientists
       
+      // Video patterns
+      'video_pattern_0': 0.9,  // "watch the documentary 'Title'"
+      'video_pattern_1': 0.9,  // "documentary called/titled 'Title'"
+      'video_pattern_2': 0.85, // "TED talk about/on 'Topic'"
+      'video_pattern_3': 0.8,  // "YouTube channel 'Name'"
+      'video_pattern_4': 0.8,  // "video series 'Title'"
+      'video_pattern_5': 0.85, // "Netflix/streaming documentary 'Title'"
+      'video_pattern_6': 0.7,  // "as shown in the video"
+      'video_pattern_7': 0.75, // "Channel's video about"
+      'video_pattern_8': 0.8,  // Well-known series (Cosmos, Planet Earth, etc.)
+      'video_pattern_9': 0.75, // Educational channels (Veritasium, etc.)
+      
       // Product and topic patterns
       'product_pattern_0': 0.9, // Brand + Model
       'product_pattern_1': 0.9,
@@ -954,6 +1105,13 @@ class EnhancedCitationDetector {
         // Products with model numbers/versions get bonus
         if (titleLower.match(/\b(pro|max|plus|ultra|air|mini|\d+)\b/)) {
           return 0.1;
+        }
+        break;
+        
+      case 'video':
+        // Videos with documentary/educational terms get bonus
+        if (titleLower.match(/\b(documentary|film|series|talk|lecture|course|explained|review|analysis)\b/)) {
+          return 0.15;
         }
         break;
         
@@ -1199,6 +1357,93 @@ function createUI() {
       
       <!-- Related Videos Tab Content -->
       <div id="tab-content-videos" class="tab-content" style="display: none;">
+        <!-- Video Filters -->
+        <div id="video-filters" style="
+          display: none;
+          margin-bottom: 16px;
+          padding: 12px;
+          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+          border-radius: 12px;
+          border: 1px solid rgba(226, 232, 240, 0.8);
+        ">
+          <div style="
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+          ">
+            <span style="
+              font-size: 13px;
+              font-weight: 600;
+              color: #475569;
+            ">Filter Videos</span>
+            <button id="clear-filters" style="
+              background: none;
+              border: none;
+              color: #64748b;
+              font-size: 11px;
+              cursor: pointer;
+              text-decoration: underline;
+            ">Clear All</button>
+          </div>
+          
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <!-- Category filters -->
+            <div class="filter-group">
+              <button class="filter-btn" data-filter="category" data-value="all" style="
+                background: #4285f4;
+                color: white;
+                border: none;
+                padding: 4px 8px;
+                border-radius: 6px;
+                font-size: 10px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s;
+              ">All</button>
+              <button class="filter-btn" data-filter="category" data-value="Documentary">Documentary</button>
+              <button class="filter-btn" data-filter="category" data-value="Course">Course</button>
+              <button class="filter-btn" data-filter="category" data-value="Explainer">Explainer</button>
+              <button class="filter-btn" data-filter="category" data-value="Lecture">Lecture</button>
+            </div>
+            
+            <!-- Difficulty filters -->
+            <div class="filter-group" style="margin-left: 12px;">
+              <button class="filter-btn" data-filter="difficulty" data-value="Beginner">Beginner</button>
+              <button class="filter-btn" data-filter="difficulty" data-value="Intermediate">Intermediate</button>
+              <button class="filter-btn" data-filter="difficulty" data-value="Advanced">Advanced</button>
+            </div>
+          </div>
+          
+          <!-- Advanced Filters Row -->
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(226, 232, 240, 0.6);">
+            <!-- Duration filters -->
+            <div class="filter-group">
+              <span style="font-size: 10px; color: #64748b; margin-right: 6px;">Duration:</span>
+              <button class="filter-btn" data-filter="duration" data-value="short">Short (&lt;10min)</button>
+              <button class="filter-btn" data-filter="duration" data-value="medium">Medium (10-30min)</button>
+              <button class="filter-btn" data-filter="duration" data-value="long">Long (&gt;30min)</button>
+            </div>
+            
+            <!-- Views filters -->
+            <div class="filter-group" style="margin-left: 12px;">
+              <span style="font-size: 10px; color: #64748b; margin-right: 6px;">Popularity:</span>
+              <button class="filter-btn" data-filter="views" data-value="high">High (&gt;1M)</button>
+              <button class="filter-btn" data-filter="views" data-value="medium">Medium (100K-1M)</button>
+              <button class="filter-btn" data-filter="views" data-value="low">Niche (&lt;100K)</button>
+            </div>
+            
+            <!-- Sort options -->
+            <div class="filter-group" style="margin-left: 12px;">
+              <span style="font-size: 10px; color: #64748b; margin-right: 6px;">Sort by:</span>
+              <button class="filter-btn" data-filter="sort" data-value="relevance">Relevance</button>
+              <button class="filter-btn" data-filter="sort" data-value="rating">Rating</button>
+              <button class="filter-btn" data-filter="sort" data-value="views">Views</button>
+              <button class="filter-btn" data-filter="sort" data-value="duration">Duration</button>
+            </div>
+          </div>
+        </div>
+        
         <div id="videos-list"></div>
       </div>
     </div>
@@ -1225,6 +1470,28 @@ function createUI() {
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
+    }
+    
+    .filter-btn {
+      background: rgba(102, 126, 234, 0.1);
+      color: #667eea;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .filter-btn:hover {
+      background: rgba(102, 126, 234, 0.2);
+      transform: translateY(-1px);
+    }
+    
+    .filter-btn.active {
+      background: #4285f4;
+      color: white;
     }
   `;
   document.head.appendChild(style);
@@ -1465,74 +1732,243 @@ async function searchYouTubeNoAPI(query) {
 }
 
 function generateEducationalVideoSuggestions(query) {
-  // Generate educational video suggestions based on common educational channels
-  // and topics related to the search query
-  
-  const educationalChannels = [
-    'Khan Academy', 'Crash Course', 'TED-Ed', 'Veritasium', 'MinutePhysics',
-    'SciShow', 'Kurzgesagt', 'MIT OpenCourseWare', 'Stanford', 'Harvard'
-  ];
+  // Enhanced video recommendation system with categorization and quality indicators
   
   const suggestions = [];
+  const queryLower = query.toLowerCase();
   
-  // Generate realistic video suggestions
-  if (query.toLowerCase().includes('quantum')) {
-    suggestions.push({
-      title: 'Quantum Mechanics Explained - Double Slit Experiment',
-      channel: 'Veritasium',
-      duration: '12:34',
-      views: '2.1M views',
-      thumbnail: 'https://i.ytimg.com/vi/p-MNSLsjjdo/maxresdefault.jpg',
-      url: 'https://www.youtube.com/results?search_query=quantum+mechanics+double+slit+experiment'
-    });
+  // Define video categories with enhanced metadata
+  const videoDatabase = {
+    quantum: [
+      {
+        title: 'Quantum Mechanics Explained - Double Slit Experiment',
+        channel: 'Veritasium',
+        duration: '12:34',
+        views: '2.1M views',
+        category: 'Documentary',
+        difficulty: 'Intermediate',
+        rating: 4.8,
+        description: 'Deep dive into the famous double slit experiment that reveals the quantum nature of reality',
+        tags: ['physics', 'quantum', 'experiment'],
+        url: 'https://www.youtube.com/watch?v=p-MNSLsjjdo'
+      },
+      {
+        title: 'Quantum Physics for Beginners - Complete Course',
+        channel: 'Khan Academy',
+        duration: '45:12',
+        views: '890K views',
+        category: 'Course',
+        difficulty: 'Beginner',
+        rating: 4.6,
+        description: 'Comprehensive introduction to quantum physics concepts for beginners',
+        tags: ['physics', 'quantum', 'beginner'],
+        url: 'https://www.youtube.com/watch?v=7kb1VT0J3DE'
+      },
+      {
+        title: 'Quantum Entanglement & Spooky Action',
+        channel: 'MinutePhysics',
+        duration: '6:23',
+        views: '3.2M views',
+        category: 'Explainer',
+        difficulty: 'Intermediate',
+        rating: 4.9,
+        description: 'Einstein\'s "spooky action at a distance" explained simply',
+        tags: ['physics', 'quantum', 'entanglement'],
+        url: 'https://www.youtube.com/watch?v=ZuvK-od647c'
+      }
+    ],
+    
+    einstein: [
+      {
+        title: 'Einstein\'s Theory of Relativity Explained',
+        channel: 'MinutePhysics',
+        duration: '8:45',
+        views: '1.8M views',
+        category: 'Explainer',
+        difficulty: 'Intermediate',
+        rating: 4.7,
+        description: 'Special and general relativity explained with clear animations',
+        tags: ['physics', 'relativity', 'einstein'],
+        url: 'https://www.youtube.com/watch?v=ajhFNcUTJI0'
+      },
+      {
+        title: 'Einstein\'s Greatest Mistake',
+        channel: 'Veritasium',
+        duration: '16:42',
+        views: '2.5M views',
+        category: 'Documentary',
+        difficulty: 'Advanced',
+        rating: 4.8,
+        description: 'The cosmological constant and Einstein\'s biggest regret',
+        tags: ['physics', 'cosmology', 'einstein'],
+        url: 'https://www.youtube.com/watch?v=GdqC2bVLesQ'
+      }
+    ],
+    
+    sapiens: [
+      {
+        title: 'Sapiens by Yuval Noah Harari - Book Summary',
+        channel: 'TED-Ed',
+        duration: '15:22',
+        views: '956K views',
+        category: 'Book Review',
+        difficulty: 'Intermediate',
+        rating: 4.5,
+        description: 'Key insights from Harari\'s bestselling book about human history',
+        tags: ['history', 'anthropology', 'book'],
+        url: 'https://www.youtube.com/watch?v=nzj7Wg4DAbs'
+      },
+      {
+        title: 'Yuval Noah Harari: The Future of Humanity',
+        channel: 'TED',
+        duration: '18:33',
+        views: '4.2M views',
+        category: 'Lecture',
+        difficulty: 'Advanced',
+        rating: 4.9,
+        description: 'Harari\'s TED talk on AI, biotechnology, and the future of our species',
+        tags: ['future', 'ai', 'humanity'],
+        url: 'https://www.youtube.com/watch?v=hL9uk4hKyg4'
+      }
+    ],
+    
+    habits: [
+      {
+        title: 'Atomic Habits by James Clear - Animated Summary',
+        channel: 'The Art of Improvement',
+        duration: '11:18',
+        views: '1.2M views',
+        category: 'Book Review',
+        difficulty: 'Beginner',
+        rating: 4.6,
+        description: 'Visual breakdown of Clear\'s habit formation strategies',
+        tags: ['productivity', 'habits', 'self-improvement'],
+        url: 'https://www.youtube.com/watch?v=PZ7lDrwYdZc'
+      },
+      {
+        title: 'How to Build Better Habits - James Clear',
+        channel: 'Google Talks',
+        duration: '52:14',
+        views: '680K views',
+        category: 'Lecture',
+        difficulty: 'Intermediate',
+        rating: 4.7,
+        description: 'Full lecture by James Clear on the science of habit formation',
+        tags: ['productivity', 'habits', 'psychology'],
+        url: 'https://www.youtube.com/watch?v=mNeXuCYiE0U'
+      }
+    ],
+    
+    documentary: [
+      {
+        title: 'Free Solo - Behind the Scenes',
+        channel: 'National Geographic',
+        duration: '8:15',
+        views: '2.8M views',
+        category: 'Documentary',
+        difficulty: 'Beginner',
+        rating: 4.8,
+        description: 'Making of the Oscar-winning climbing documentary',
+        tags: ['climbing', 'documentary', 'adventure'],
+        url: 'https://www.youtube.com/watch?v=urRVZ4SW7WU'
+      },
+      {
+        title: 'Our Planet - Official Trailer',
+        channel: 'Netflix',
+        duration: '2:31',
+        views: '15M views',
+        category: 'Trailer',
+        difficulty: 'Beginner',
+        rating: 4.9,
+        description: 'Stunning nature documentary series narrated by David Attenborough',
+        tags: ['nature', 'documentary', 'wildlife'],
+        url: 'https://www.youtube.com/watch?v=aETNYyrqNYE'
+      }
+    ]
+  };
+  
+  // Match query to video categories
+  if (queryLower.includes('quantum')) {
+    suggestions.push(...videoDatabase.quantum);
   }
   
-  if (query.toLowerCase().includes('einstein') || query.toLowerCase().includes('relativity')) {
-    suggestions.push({
-      title: 'Einstein\'s Theory of Relativity Explained',
-      channel: 'MinutePhysics',
-      duration: '8:45',
-      views: '1.8M views',
-      thumbnail: 'https://i.ytimg.com/vi/ajhFNcUTJI0/maxresdefault.jpg',
-      url: 'https://www.youtube.com/results?search_query=einstein+theory+relativity+explained'
-    });
+  if (queryLower.includes('einstein') || queryLower.includes('relativity')) {
+    suggestions.push(...videoDatabase.einstein);
   }
   
-  if (query.toLowerCase().includes('sapiens') || query.toLowerCase().includes('harari')) {
-    suggestions.push({
-      title: 'Sapiens by Yuval Noah Harari - Book Summary',
-      channel: 'TED-Ed',
-      duration: '15:22',
-      views: '956K views',
-      thumbnail: 'https://i.ytimg.com/vi/nzj7Wg4DAbs/maxresdefault.jpg',
-      url: 'https://www.youtube.com/results?search_query=sapiens+yuval+noah+harari+summary'
-    });
+  if (queryLower.includes('sapiens') || queryLower.includes('harari')) {
+    suggestions.push(...videoDatabase.sapiens);
   }
   
-  if (query.toLowerCase().includes('atomic habits') || query.toLowerCase().includes('james clear')) {
-    suggestions.push({
-      title: 'Atomic Habits by James Clear - Animated Summary',
-      channel: 'The Art of Improvement',
-      duration: '11:18',
-      views: '1.2M views',
-      thumbnail: 'https://i.ytimg.com/vi/PZ7lDrwYdZc/maxresdefault.jpg',
-      url: 'https://www.youtube.com/results?search_query=atomic+habits+james+clear+summary'
-    });
+  if (queryLower.includes('atomic habits') || queryLower.includes('james clear') || queryLower.includes('habits')) {
+    suggestions.push(...videoDatabase.habits);
+  }
+  
+  if (queryLower.includes('documentary') || queryLower.includes('free solo') || queryLower.includes('our planet')) {
+    suggestions.push(...videoDatabase.documentary);
   }
   
   // Add general educational suggestions if no specific matches
   if (suggestions.length === 0) {
-    suggestions.push({
-      title: `Understanding ${query} - Educational Overview`,
-      channel: 'Khan Academy',
-      duration: '10:15',
-      views: '500K views',
-      thumbnail: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg',
-      url: `https://www.youtube.com/results?search_query=${encodeURIComponent(query + ' educational')}`
-    });
+    // Add some diverse general educational content
+    suggestions.push(
+      {
+        title: `Understanding ${query} - Educational Overview`,
+        channel: 'Khan Academy',
+        duration: '10:15',
+        views: '500K views',
+        category: 'Course',
+        difficulty: 'Beginner',
+        rating: 4.5,
+        description: `Comprehensive introduction to ${query} concepts`,
+        tags: ['education', 'overview'],
+        url: `https://www.youtube.com/results?search_query=${encodeURIComponent(query + ' educational')}`
+      },
+      {
+        title: 'The Science of Learning - How to Study Effectively',
+        channel: 'Veritasium',
+        duration: '7:42',
+        views: '3.8M views',
+        category: 'Explainer',
+        difficulty: 'Intermediate',
+        rating: 4.8,
+        description: 'Evidence-based techniques for better learning and memory retention',
+        tags: ['learning', 'science', 'education'],
+        url: 'https://www.youtube.com/watch?v=23Xqu0jXlfs'
+      },
+      {
+        title: 'Introduction to Critical Thinking',
+        channel: 'Crash Course',
+        duration: '35:20',
+        views: '1.2M views',
+        category: 'Course',
+        difficulty: 'Beginner',
+        rating: 4.6,
+        description: 'Learn the fundamentals of logical reasoning and argument analysis',
+        tags: ['critical thinking', 'logic', 'philosophy'],
+        url: 'https://www.youtube.com/watch?v=6OLPL5p0fMg'
+      },
+      {
+        title: 'The Future of Education - MIT Lecture',
+        channel: 'MIT OpenCourseWare',
+        duration: '1:15:30',
+        views: '85K views',
+        category: 'Lecture',
+        difficulty: 'Advanced',
+        rating: 4.7,
+        description: 'Exploring how technology and pedagogy will transform learning',
+        tags: ['education', 'technology', 'future'],
+        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+      }
+    );
   }
   
-  return suggestions;
+  // Sort by rating and views for quality
+  return suggestions.sort((a, b) => {
+    const aScore = a.rating * 0.7 + (parseFloat(a.views) || 0) * 0.3;
+    const bScore = b.rating * 0.7 + (parseFloat(b.views) || 0) * 0.3;
+    return bScore - aScore;
+  });
 }
 
 function removeDuplicateVideos(videos) {
@@ -1547,6 +1983,96 @@ function removeDuplicateVideos(videos) {
   });
 }
 
+function getCategoryStyle(category) {
+  const styles = {
+    'Documentary': {
+      color: '#dc2626',
+      gradient: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
+      icon: 'M8 5v14l11-7z' // Play icon
+    },
+    'Course': {
+      color: '#2563eb',
+      gradient: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+      icon: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' // Star icon
+    },
+    'Explainer': {
+      color: '#059669',
+      gradient: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+      icon: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z' // Lightbulb icon
+    },
+    'Lecture': {
+      color: '#7c3aed',
+      gradient: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+      icon: 'M12 14l9-5-9-5-9 5 9 5z M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z' // Academic cap
+    },
+    'Book Review': {
+      color: '#ea580c',
+      gradient: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
+      icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253' // Book icon
+    },
+    'Trailer': {
+      color: '#be185d',
+      gradient: 'linear-gradient(135deg, #be185d 0%, #9d174d 100%)',
+      icon: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' // Video camera icon
+    }
+  };
+  
+  return styles[category] || {
+    color: '#6b7280',
+    gradient: 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)',
+    icon: 'M8 5v14l11-7z'
+  };
+}
+
+function getDifficultyStyle(difficulty) {
+  const styles = {
+    'Beginner': {
+      color: '#059669'
+    },
+    'Intermediate': {
+      color: '#d97706'
+    },
+    'Advanced': {
+      color: '#dc2626'
+    }
+  };
+  
+  return styles[difficulty] || { color: '#6b7280' };
+}
+
+function generateStars(rating) {
+  const fullStars = Math.floor(rating);
+  const hasHalfStar = rating % 1 >= 0.5;
+  const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+  
+  let stars = '';
+  
+  // Full stars
+  for (let i = 0; i < fullStars; i++) {
+    stars += '<svg width="12" height="12" viewBox="0 0 24 24" fill="#fbbf24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>';
+  }
+  
+  // Half star
+  if (hasHalfStar) {
+    stars += '<svg width="12" height="12" viewBox="0 0 24 24" fill="#fbbf24"><defs><linearGradient id="half"><stop offset="50%" stop-color="#fbbf24"/><stop offset="50%" stop-color="#e5e7eb"/></linearGradient></defs><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="url(#half)"/></svg>';
+  }
+  
+  // Empty stars
+  for (let i = 0; i < emptyStars; i++) {
+    stars += '<svg width="12" height="12" viewBox="0 0 24 24" fill="#e5e7eb"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>';
+  }
+  
+  return stars;
+}
+
+let currentVideoFilters = {
+  category: 'all',
+  difficulty: null,
+  duration: null,
+  views: null,
+  sort: 'relevance'
+};
+
 function displayRelatedVideos(videos) {
   const videosContainer = document.getElementById('videos-list');
   if (!videosContainer) return;
@@ -1556,88 +2082,577 @@ function displayRelatedVideos(videos) {
     return;
   }
   
-  videosContainer.innerHTML = videos.map(video => `
-    <div style="
-      background: white;
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 16px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      border: 1px solid rgba(226, 232, 240, 0.8);
-      transition: all 0.3s ease;
-      cursor: pointer;
-    " onclick="window.open('${video.url}', '_blank')" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 16px rgba(0, 0, 0, 0.15)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(0, 0, 0, 0.1)'">
-      
-      <div style="display: flex; gap: 12px;">
-        <div style="
-          width: 120px;
-          height: 68px;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          border-radius: 8px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        ">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-            <path d="M8 5v14l11-7z"/>
-          </svg>
-        </div>
+  // Show filters when videos are available
+  const filtersContainer = document.getElementById('video-filters');
+  if (filtersContainer) {
+    filtersContainer.style.display = 'block';
+    setupVideoFilters(videos);
+    
+    // Set default active states
+    setTimeout(() => {
+      const allBtn = document.querySelector('[data-value="all"]');
+      const relevanceBtn = document.querySelector('[data-value="relevance"]');
+      if (allBtn) allBtn.classList.add('active');
+      if (relevanceBtn) relevanceBtn.classList.add('active');
+    }, 100);
+  }
+  
+  videosContainer.innerHTML = videos.map((video, index) => {
+    // Get category colors and icons
+    const categoryStyles = getCategoryStyle(video.category);
+    const difficultyStyles = getDifficultyStyle(video.difficulty);
+    
+    return `
+      <div style="
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        transition: all 0.3s ease;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+      " onclick="window.open('${video.url}', '_blank')" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 32px rgba(0, 0, 0, 0.12)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 20px rgba(0, 0, 0, 0.08)'">
         
-        <div style="flex: 1; min-width: 0;">
-          <h4 style="
-            margin: 0 0 6px 0;
-            font-size: 14px;
-            font-weight: 600;
-            color: #1e293b;
-            line-height: 1.3;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-          ">${video.title}</h4>
-          
+        <!-- Category stripe -->
+        <div style="
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 4px;
+          height: 100%;
+          background: ${categoryStyles.color};
+        "></div>
+        
+        <div style="display: flex; gap: 16px;">
+          <!-- Enhanced thumbnail with category icon -->
           <div style="
+            width: 140px;
+            height: 80px;
+            background: ${categoryStyles.gradient};
+            border-radius: 12px;
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin-bottom: 4px;
+            justify-content: center;
+            flex-shrink: 0;
+            position: relative;
           ">
-            <span style="
-              font-size: 12px;
-              color: #64748b;
-              font-weight: 500;
-            ">${video.channel}</span>
-            <span style="
-              width: 3px;
-              height: 3px;
-              background: #cbd5e1;
-              border-radius: 50%;
-            "></span>
-            <span style="
-              font-size: 12px;
-              color: #64748b;
-            ">${video.views}</span>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+              <path d="${categoryStyles.icon}"/>
+            </svg>
+            
+            <!-- Duration badge -->
+            <div style="
+              position: absolute;
+              bottom: 6px;
+              right: 6px;
+              background: rgba(0, 0, 0, 0.8);
+              color: white;
+              padding: 2px 6px;
+              border-radius: 4px;
+              font-size: 10px;
+              font-weight: 600;
+            ">${video.duration}</div>
           </div>
           
-          <div style="
-            display: flex;
-            align-items: center;
-            gap: 6px;
-          ">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="#64748b">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-            <span style="
-              font-size: 11px;
-              color: #64748b;
-              font-weight: 500;
-            ">${video.duration}</span>
+          <div style="flex: 1; min-width: 0;">
+            <!-- Title and rating -->
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px;">
+              <h4 style="
+                margin: 0;
+                font-size: 15px;
+                font-weight: 600;
+                color: #1e293b;
+                line-height: 1.3;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+                flex: 1;
+                margin-right: 12px;
+              ">${video.title}</h4>
+              
+              <!-- Rating stars -->
+              <div style="
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                flex-shrink: 0;
+              ">
+                <div style="display: flex; gap: 1px;">
+                  ${generateStars(video.rating)}
+                </div>
+                <span style="
+                  font-size: 11px;
+                  color: #64748b;
+                  font-weight: 500;
+                ">${video.rating}</span>
+              </div>
+            </div>
+            
+            <!-- Channel and views -->
+            <div style="
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              margin-bottom: 8px;
+            ">
+              <span style="
+                font-size: 13px;
+                color: #64748b;
+                font-weight: 500;
+              ">${video.channel}</span>
+              <span style="
+                width: 3px;
+                height: 3px;
+                background: #cbd5e1;
+                border-radius: 50%;
+              "></span>
+              <span style="
+                font-size: 12px;
+                color: #64748b;
+              ">${video.views}</span>
+            </div>
+            
+            <!-- Category and difficulty badges -->
+            <div style="
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              margin-bottom: 8px;
+            ">
+              <span style="
+                background: ${categoryStyles.color}20;
+                color: ${categoryStyles.color};
+                padding: 3px 8px;
+                border-radius: 12px;
+                font-size: 10px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+              ">${video.category}</span>
+              
+              <span style="
+                background: ${difficultyStyles.color}20;
+                color: ${difficultyStyles.color};
+                padding: 3px 8px;
+                border-radius: 12px;
+                font-size: 10px;
+                font-weight: 600;
+              ">${video.difficulty}</span>
+            </div>
+            
+            <!-- Description -->
+            ${video.description ? `
+              <p style="
+                margin: 0;
+                font-size: 12px;
+                color: #64748b;
+                line-height: 1.4;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+              ">${video.description}</p>
+            ` : ''}
           </div>
         </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
+}
+
+function setupVideoFilters(allVideos) {
+  // Store all videos for filtering
+  window.allRelatedVideos = allVideos;
+  
+  // Add event listeners to filter buttons
+  const filterButtons = document.querySelectorAll('.filter-btn');
+  filterButtons.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const filterType = e.target.dataset.filter;
+      const filterValue = e.target.dataset.value;
+      
+      if (filterType === 'category') {
+        // Update category filter
+        currentVideoFilters.category = filterValue;
+        
+        // Update button states for category
+        document.querySelectorAll('[data-filter="category"]').forEach(b => {
+          b.classList.remove('active');
+        });
+        e.target.classList.add('active');
+        
+      } else if (filterType === 'difficulty') {
+        // Toggle difficulty filter
+        if (currentVideoFilters.difficulty === filterValue) {
+          currentVideoFilters.difficulty = null;
+          e.target.classList.remove('active');
+        } else {
+          // Remove active from other difficulty buttons
+          document.querySelectorAll('[data-filter="difficulty"]').forEach(b => {
+            b.classList.remove('active');
+          });
+          currentVideoFilters.difficulty = filterValue;
+          e.target.classList.add('active');
+        }
+      } else if (filterType === 'duration') {
+        // Toggle duration filter
+        if (currentVideoFilters.duration === filterValue) {
+          currentVideoFilters.duration = null;
+          e.target.classList.remove('active');
+        } else {
+          document.querySelectorAll('[data-filter="duration"]').forEach(b => {
+            b.classList.remove('active');
+          });
+          currentVideoFilters.duration = filterValue;
+          e.target.classList.add('active');
+        }
+      } else if (filterType === 'views') {
+        // Toggle views filter
+        if (currentVideoFilters.views === filterValue) {
+          currentVideoFilters.views = null;
+          e.target.classList.remove('active');
+        } else {
+          document.querySelectorAll('[data-filter="views"]').forEach(b => {
+            b.classList.remove('active');
+          });
+          currentVideoFilters.views = filterValue;
+          e.target.classList.add('active');
+        }
+      } else if (filterType === 'sort') {
+        // Update sort option
+        document.querySelectorAll('[data-filter="sort"]').forEach(b => {
+          b.classList.remove('active');
+        });
+        currentVideoFilters.sort = filterValue;
+        e.target.classList.add('active');
+      }
+      
+      // Apply filters
+      applyVideoFilters();
+    });
+  });
+  
+  // Clear filters button
+  const clearBtn = document.getElementById('clear-filters');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      currentVideoFilters = { category: 'all', difficulty: null, duration: null, views: null, sort: 'relevance' };
+      
+      // Reset button states
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.querySelector('[data-value="all"]').classList.add('active');
+      document.querySelector('[data-value="relevance"]').classList.add('active');
+      
+      // Show all videos
+      displayFilteredVideos(allVideos);
+    });
+  }
+}
+
+function applyVideoFilters() {
+  const allVideos = window.allRelatedVideos || [];
+  
+  let filteredVideos = allVideos.filter(video => {
+    // Category filter
+    if (currentVideoFilters.category !== 'all' && video.category !== currentVideoFilters.category) {
+      return false;
+    }
+    
+    // Difficulty filter
+    if (currentVideoFilters.difficulty && video.difficulty !== currentVideoFilters.difficulty) {
+      return false;
+    }
+    
+    // Duration filter
+    if (currentVideoFilters.duration) {
+      const durationMinutes = parseDurationToMinutes(video.duration);
+      if (currentVideoFilters.duration === 'short' && durationMinutes >= 10) return false;
+      if (currentVideoFilters.duration === 'medium' && (durationMinutes < 10 || durationMinutes > 30)) return false;
+      if (currentVideoFilters.duration === 'long' && durationMinutes <= 30) return false;
+    }
+    
+    // Views filter
+    if (currentVideoFilters.views) {
+      const viewCount = parseViewsToNumber(video.views);
+      if (currentVideoFilters.views === 'high' && viewCount < 1000000) return false;
+      if (currentVideoFilters.views === 'medium' && (viewCount < 100000 || viewCount >= 1000000)) return false;
+      if (currentVideoFilters.views === 'low' && viewCount >= 100000) return false;
+    }
+    
+    return true;
+  });
+  
+  // Apply sorting
+  filteredVideos = sortVideos(filteredVideos, currentVideoFilters.sort);
+  
+  displayFilteredVideos(filteredVideos);
+}
+
+function parseDurationToMinutes(duration) {
+  // Parse duration like "12:34" or "1:23:45" to minutes
+  const parts = duration.split(':').map(Number);
+  if (parts.length === 2) {
+    return parts[0] + parts[1] / 60; // MM:SS
+  } else if (parts.length === 3) {
+    return parts[0] * 60 + parts[1] + parts[2] / 60; // HH:MM:SS
+  }
+  return 0;
+}
+
+function parseViewsToNumber(views) {
+  // Parse views like "2.1M views" or "890K views" to numbers
+  const match = views.match(/([\d.]+)([KMB]?)/);
+  if (!match) return 0;
+  
+  const number = parseFloat(match[1]);
+  const suffix = match[2];
+  
+  switch (suffix) {
+    case 'K': return number * 1000;
+    case 'M': return number * 1000000;
+    case 'B': return number * 1000000000;
+    default: return number;
+  }
+}
+
+function sortVideos(videos, sortBy) {
+  const sortedVideos = [...videos];
+  
+  switch (sortBy) {
+    case 'rating':
+      return sortedVideos.sort((a, b) => b.rating - a.rating);
+    
+    case 'views':
+      return sortedVideos.sort((a, b) => parseViewsToNumber(b.views) - parseViewsToNumber(a.views));
+    
+    case 'duration':
+      return sortedVideos.sort((a, b) => parseDurationToMinutes(a.duration) - parseDurationToMinutes(b.duration));
+    
+    case 'relevance':
+    default:
+      // Default relevance sorting (rating * 0.7 + normalized views * 0.3)
+      return sortedVideos.sort((a, b) => {
+        const aScore = a.rating * 0.7 + (parseViewsToNumber(a.views) / 10000000) * 0.3;
+        const bScore = b.rating * 0.7 + (parseViewsToNumber(b.views) / 10000000) * 0.3;
+        return bScore - aScore;
+      });
+  }
+}
+
+function displayFilteredVideos(videos) {
+  const videosContainer = document.getElementById('videos-list');
+  if (!videosContainer) return;
+  
+  if (videos.length === 0) {
+    videosContainer.innerHTML = `
+      <div style="
+        text-align: center;
+        padding: 40px 20px;
+        color: #64748b;
+      ">
+        <div style="
+          width: 64px;
+          height: 64px;
+          background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 16px;
+        ">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="#94a3b8">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+        </div>
+        <h3 style="
+          margin: 0 0 8px 0;
+          font-size: 16px;
+          font-weight: 600;
+          color: #475569;
+        ">No videos match your filters</h3>
+        <p style="
+          margin: 0;
+          font-size: 14px;
+          color: #64748b;
+          line-height: 1.5;
+        ">Try adjusting your filters to see more results</p>
+      </div>
+    `;
+    return;
+  }
+  
+  // Use the same display logic as the main function
+  videosContainer.innerHTML = videos.map((video, index) => {
+    // Get category colors and icons
+    const categoryStyles = getCategoryStyle(video.category);
+    const difficultyStyles = getDifficultyStyle(video.difficulty);
+    
+    return `
+      <div style="
+        background: white;
+        border-radius: 16px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        transition: all 0.3s ease;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+      " onclick="window.open('${video.url}', '_blank')" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 32px rgba(0, 0, 0, 0.12)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 20px rgba(0, 0, 0, 0.08)'">
+        
+        <!-- Category stripe -->
+        <div style="
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 4px;
+          height: 100%;
+          background: ${categoryStyles.color};
+        "></div>
+        
+        <div style="display: flex; gap: 16px;">
+          <!-- Enhanced thumbnail with category icon -->
+          <div style="
+            width: 140px;
+            height: 80px;
+            background: ${categoryStyles.gradient};
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            position: relative;
+          ">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+              <path d="${categoryStyles.icon}"/>
+            </svg>
+            
+            <!-- Duration badge -->
+            <div style="
+              position: absolute;
+              bottom: 6px;
+              right: 6px;
+              background: rgba(0, 0, 0, 0.8);
+              color: white;
+              padding: 2px 6px;
+              border-radius: 4px;
+              font-size: 10px;
+              font-weight: 600;
+            ">${video.duration}</div>
+          </div>
+          
+          <div style="flex: 1; min-width: 0;">
+            <!-- Title and rating -->
+            <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px;">
+              <h4 style="
+                margin: 0;
+                font-size: 15px;
+                font-weight: 600;
+                color: #1e293b;
+                line-height: 1.3;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+                flex: 1;
+                margin-right: 12px;
+              ">${video.title}</h4>
+              
+              <!-- Rating stars -->
+              <div style="
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                flex-shrink: 0;
+              ">
+                <div style="display: flex; gap: 1px;">
+                  ${generateStars(video.rating)}
+                </div>
+                <span style="
+                  font-size: 11px;
+                  color: #64748b;
+                  font-weight: 500;
+                ">${video.rating}</span>
+              </div>
+            </div>
+            
+            <!-- Channel and views -->
+            <div style="
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              margin-bottom: 8px;
+            ">
+              <span style="
+                font-size: 13px;
+                color: #64748b;
+                font-weight: 500;
+              ">${video.channel}</span>
+              <span style="
+                width: 3px;
+                height: 3px;
+                background: #cbd5e1;
+                border-radius: 50%;
+              "></span>
+              <span style="
+                font-size: 12px;
+                color: #64748b;
+              ">${video.views}</span>
+            </div>
+            
+            <!-- Category and difficulty badges -->
+            <div style="
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              margin-bottom: 8px;
+            ">
+              <span style="
+                background: ${categoryStyles.color}20;
+                color: ${categoryStyles.color};
+                padding: 3px 8px;
+                border-radius: 12px;
+                font-size: 10px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+              ">${video.category}</span>
+              
+              <span style="
+                background: ${difficultyStyles.color}20;
+                color: ${difficultyStyles.color};
+                padding: 3px 8px;
+                border-radius: 12px;
+                font-size: 10px;
+                font-weight: 600;
+              ">${video.difficulty}</span>
+            </div>
+            
+            <!-- Description -->
+            ${video.description ? `
+              <p style="
+                margin: 0;
+                font-size: 12px;
+                color: #64748b;
+                line-height: 1.4;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+              ">${video.description}</p>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 function showNoVideosMessage() {
@@ -1754,7 +2769,7 @@ async function getVideoText() {
   // Fallback: return sample text for testing
   console.log('📝 Using sample text for testing...');
   return { 
-    text: "Check out the book 'Sapiens' by Yuval Noah Harari. Also, there's an interesting study published in Science about human evolution. I recommend reading 'Atomic Habits' by James Clear. Einstein developed the theory of Quantum Mechanics. CERN is conducting experiments on Particle Physics. Quantum Entanglement is a fascinating phenomenon. The Double Slit Experiment demonstrates wave-particle duality.",
+    text: "Check out the book 'Sapiens' by Yuval Noah Harari. Also, there's an interesting study published in Science about human evolution. I recommend reading 'Atomic Habits' by James Clear. Einstein developed the theory of Quantum Mechanics. CERN is conducting experiments on Particle Physics. Quantum Entanglement is a fascinating phenomenon. The Double Slit Experiment demonstrates wave-particle duality. Watch the documentary 'Free Solo' about rock climbing. There's a great TED talk about artificial intelligence. Check out the Netflix series 'Our Planet' for amazing nature footage. Veritasium explains quantum physics really well.",
     segments: []
   };
 }
@@ -2068,9 +3083,11 @@ function updateCitationsUI(citations) {
       generalList.innerHTML = generalCitations.map((citation, index) => {
         const typeIcon = citation.type === 'book' ? '📚' : 
                        citation.type === 'product' ? '🛍️' : 
+                       citation.type === 'video' ? '🎬' :
                        citation.type === 'topic' ? '💡' : '📄';
         const typeColor = citation.type === 'book' ? '#8b5cf6' : 
                         citation.type === 'product' ? '#f59e0b' : 
+                        citation.type === 'video' ? '#dc2626' :
                         citation.type === 'topic' ? '#10b981' : '#6b7280';
         const confidenceColor = citation.confidence > 0.7 ? '#10b981' : citation.confidence > 0.5 ? '#f59e0b' : '#ef4444';
         
@@ -2086,7 +3103,7 @@ function updateCitationsUI(citations) {
         ">
           <div style="font-size: 48px; margin-bottom: 12px; opacity: 0.5;">📖</div>
           <div style="font-weight: 600; margin-bottom: 4px;">No general citations detected</div>
-          <div style="font-size: 12px;">Books, products, and topics will appear here</div>
+          <div style="font-size: 12px;">Books, videos, products, and topics will appear here</div>
         </div>
       `;
     }

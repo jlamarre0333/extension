@@ -1,7 +1,7 @@
 # Citation Cross-Reference Extension - Task Board
 
 ## Doing
-- [ ] Add video mention detection patterns
+- [ ] Test video discovery accuracy
 
 ## To Do
 
@@ -10,10 +10,6 @@
 ### Phase 2: Core Citation Features (Weeks 3-4)
 
 ### Phase 3: Video Discovery Feature (Weeks 5-6)
-- [ ] Add video mention detection patterns
-- [ ] Create video recommendation cards in sidebar
-- [ ] Add filtering for video results (duration, views, relevance)
-- [ ] Test video discovery accuracy
 
 ### Phase 4: Enhanced Detection (Weeks 7-8)
 - [ ] Upgrade to NLP-based entity recognition
@@ -65,6 +61,9 @@
 - [x] Add timestamp synchronization with video playback
 - [x] Improve citation confidence scoring
 - [x] Implement YouTube Search API integration
+- [x] Add video mention detection patterns
+- [x] Create video recommendation cards in sidebar
+- [x] Add filtering for video results (duration, views, relevance)
 
 ## Backlog Ideas
 - [ ] Integration with note-taking apps (Notion, Obsidian)
