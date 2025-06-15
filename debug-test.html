@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Citation Detection Test</title>
+</head>
+<body>
+    <h1>Citation Detection Test</h1>
+    <p>This page simulates transcript text to test our citation detection.</p>
+    
+    <div id="test-transcript">
+        <p>In his book "Sapiens: A Brief History of Humankind", Yuval Noah Harari discusses the cognitive revolution.</p>
+        <p>The study published in Nature shows that climate change is accelerating.</p>
+        <p>There's a great video called "The Power of Vulnerability" by Brené Brown on TED.</p>
+        <p>According to research by Stanford University, meditation improves focus.</p>
+        <p>The author Malcolm Gladwell wrote "Outliers: The Story of Success".</p>
+    </div>
+
+    <script src="utils/helpers.js"></script>
+    <script src="content/citation-detector.js"></script>
+    <script>
+        // Test citation detection
+        async function testCitationDetection() {
+            console.log('Testing citation detection...');
+            
+            const testText = document.getElementById('test-transcript').textContent;
+            console.log('Test text:', testText);
+            
+            if (window.CitationDetector) {
+                const citations = await window.CitationDetector.analyzeText(testText, 0);
+                console.log('Found citations:', citations);
+                
+                // Display results
+                const results = document.createElement('div');
+                results.innerHTML = '<h2>Detection Results:</h2>';
+                
+                if (citations.length > 0) {
+                    citations.forEach(citation => {
+                        results.innerHTML += `
+                            <div style="border: 1px solid #ccc; margin: 10px; padding: 10px;">
+                                <strong>Type:</strong> ${citation.type}<br>
+                                <strong>Title:</strong> ${citation.title}<br>
+                                <strong>Author:</strong> ${citation.author || 'N/A'}<br>
+                                <strong>Confidence:</strong> ${(citation.confidence * 100).toFixed(1)}%<br>
+                                <strong>Context:</strong> ${citation.context}
+                            </div>
+                        `;
+                    });
+                } else {
+                    results.innerHTML += '<p>No citations detected.</p>';
+                }
+                
+                document.body.appendChild(results);
+            } else {
+                console.error('CitationDetector not loaded');
+                document.body.innerHTML += '<p style="color: red;">CitationDetector not loaded!</p>';
+            }
+        }
+        
+        // Run test when page loads
+        setTimeout(testCitationDetection, 1000);
+    </script>
+</body>
+</html> 

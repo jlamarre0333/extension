@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "Citation Cross-Reference",
+  "version": "1.0.0",
+  "description": "Automatically detect and provide instant access to sources and videos mentioned in educational content",
+  
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  
+  "host_permissions": [
+    "https://www.youtube.com/*",
+    "https://www.googleapis.com/*",
+    "https://api.semanticscholar.org/*",
+    "https://en.wikipedia.org/*"
+  ],
+  
+  "background": {
+    "service_worker": "background/background.js"
+  },
+  
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": [
+        "simple-test.js"
+      ]
+    }
+  ],
+  
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Citation Cross-Reference"
+  }
+} 

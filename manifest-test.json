@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Content Script Test",
+  "version": "1.0.0",
+  "description": "Test if content scripts can load",
+  
+  "permissions": ["activeTab"],
+  
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["test-load.js"],
+      "run_at": "document_end"
+    }
+  ]
+} 

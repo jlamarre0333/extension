@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Content Script Test",
+  "version": "1.0.0",
+  "description": "Test content scripts specifically on YouTube",
+  
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  
+  "host_permissions": [
+    "https://www.youtube.com/*"
+  ],
+  
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["youtube-test.js"],
+      "run_at": "document_end",
+      "all_frames": false
+    }
+  ],
+  
+  "web_accessible_resources": [
+    {
+      "resources": ["youtube-test.js"],
+      "matches": ["https://www.youtube.com/*"]
+    }
+  ]
+} 

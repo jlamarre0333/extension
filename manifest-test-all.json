@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Content Script Test All Sites",
+  "version": "1.0.0",
+  "description": "Test if content scripts can load on any site",
+  
+  "permissions": ["activeTab"],
+  
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["test-load.js"],
+      "run_at": "document_end"
+    }
+  ]
+} 

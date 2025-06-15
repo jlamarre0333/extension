@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Ultra Simple Test",
+  "version": "1.0.0",
+  "description": "Test basic global variable assignment",
+  
+  "permissions": ["activeTab"],
+  
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["ultra-simple-helpers.js"],
+      "run_at": "document_end"
+    }
+  ]
+} 

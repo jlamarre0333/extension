@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 300px;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .logo {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 10px;
+      background: #4285f4;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 24px;
+    }
+    .title {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0;
+    }
+    .subtitle {
+      font-size: 14px;
+      color: #666;
+      margin: 5px 0 0 0;
+    }
+    .status {
+      padding: 15px;
+      border-radius: 8px;
+      margin: 15px 0;
+      text-align: center;
+    }
+    .status.active {
+      background: #e8f5e8;
+      color: #2d5a2d;
+      border: 1px solid #c3e6c3;
+    }
+    .status.inactive {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .primary {
+      background: #4285f4;
+      color: white;
+    }
+    .secondary {
+      background: #f8f9fa;
+      color: #5f6368;
+      border: 1px solid #dadce0;
+    }
+    .stats {
+      margin-top: 20px;
+      padding-top: 15px;
+      border-top: 1px solid #e0e0e0;
+    }
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      margin: 8px 0;
+      font-size: 14px;
+    }
+    .stat-value {
+      font-weight: 600;
+      color: #4285f4;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">📚</div>
+    <h1 class="title">Citation Cross-Reference</h1>
+    <p class="subtitle">Discover sources and videos instantly</p>
+  </div>
+  
+  <div id="status" class="status inactive">
+    <div id="status-text">Not active on this page</div>
+  </div>
+  
+  <div class="controls">
+    <button id="toggle-btn" class="primary">Enable</button>
+    <button id="settings-btn" class="secondary">Settings</button>
+  </div>
+  
+  <div class="stats">
+    <div class="stat-item">
+      <span>Citations Found Today:</span>
+      <span id="citations-today" class="stat-value">0</span>
+    </div>
+    <div class="stat-item">
+      <span>Videos Discovered:</span>
+      <span id="videos-found" class="stat-value">0</span>
+    </div>
+    <div class="stat-item">
+      <span>Sources Accessed:</span>
+      <span id="sources-accessed" class="stat-value">0</span>
+    </div>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html> 

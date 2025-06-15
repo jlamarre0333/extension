@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "Citation Cross-Reference",
+  "version": "1.0.0",
+  "description": "Automatically detect and cross-reference citations from YouTube videos and podcasts",
+  
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  
+  "host_permissions": [
+    "https://www.googleapis.com/*",
+    "https://api.semanticscholar.org/*",
+    "https://en.wikipedia.org/*"
+  ],
+  
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Citation Cross-Reference"
+  },
+  
+  "background": {
+    "service_worker": "background/background.js"
+  },
+  
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": [
+        "utils/helpers.js",
+        "utils/transcript-parser.js",
+        "content/citation-detector.js",
+        "content/ui-injector.js",
+        "content/content.js"
+      ],
+      "css": ["ui/sidebar.css"]
+    }
+  ],
+  
+  "web_accessible_resources": [
+    {
+      "resources": ["ui/sidebar.css"],
+      "matches": ["https://www.youtube.com/*"]
+    }
+  ]
+} 
