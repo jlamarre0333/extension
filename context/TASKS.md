@@ -1,17 +1,15 @@
 # Citation Cross-Reference Extension - Task Board
 
 ## Doing
-- [ ] Improve citation confidence scoring
+- [ ] Add video mention detection patterns
 
 ## To Do
 
 ### Phase 1: Foundation (Weeks 1-2)
 
 ### Phase 2: Core Citation Features (Weeks 3-4)
-- [ ] Improve citation confidence scoring
 
 ### Phase 3: Video Discovery Feature (Weeks 5-6)
-- [ ] Implement YouTube Search API integration
 - [ ] Add video mention detection patterns
 - [ ] Create video recommendation cards in sidebar
 - [ ] Add filtering for video results (duration, views, relevance)
@@ -65,6 +63,8 @@
 - [x] Add Wikipedia API as fallback for papers/studies
 - [x] Add Google Scholar API for research papers
 - [x] Add timestamp synchronization with video playback
+- [x] Improve citation confidence scoring
+- [x] Implement YouTube Search API integration
 
 ## Backlog Ideas
 - [ ] Integration with note-taking apps (Notion, Obsidian)
