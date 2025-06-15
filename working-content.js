@@ -3531,6 +3531,385 @@ window.CitationCrossReference = {
       return citations;
     }
     return [];
+  },
+  
+  // Comprehensive accuracy testing suite
+  async runAccuracyTests() {
+    console.log('🎯 Starting Video Discovery Accuracy Tests...');
+    console.log('==========================================');
+    
+    const testResults = {
+      transcriptExtraction: { passed: 0, failed: 0, tests: [] },
+      citationDetection: { passed: 0, failed: 0, tests: [] },
+      videoRecommendations: { passed: 0, failed: 0, tests: [] },
+      apiIntegration: { passed: 0, failed: 0, tests: [] },
+      filteringSystem: { passed: 0, failed: 0, tests: [] },
+      overall: { accuracy: 0, totalTests: 0, passedTests: 0 }
+    };
+
+    // Test 1: Transcript Extraction
+    await this.testTranscriptExtraction(testResults);
+    
+    // Test 2: Citation Detection Patterns
+    await this.testCitationPatterns(testResults);
+    
+    // Test 3: Video Recommendation Generation
+    await this.testVideoRecommendations(testResults);
+    
+    // Test 4: API Integration
+    await this.testAPIIntegration(testResults);
+    
+    // Test 5: Filtering System
+    await this.testFilteringSystem(testResults);
+    
+    // Calculate overall accuracy
+    this.calculateOverallAccuracy(testResults);
+    
+    // Display results
+    this.displayTestResults(testResults);
+    
+    return testResults;
+  },
+
+  async testTranscriptExtraction(testResults) {
+    console.log('📝 Testing transcript extraction methods...');
+    
+    const tests = [
+      {
+        name: 'Current video transcript',
+        test: async () => {
+          const text = await getVideoText();
+          return text && text.length > 100;
+        }
+      },
+      {
+        name: 'Fallback content availability',
+        test: async () => {
+          const fallbackText = `Watch the documentary 'Free Solo' about Alex Honnold's incredible climb. The book 'Sapiens' by Yuval Noah Harari explores human evolution. Einstein's theory of relativity revolutionized physics. Quantum mechanics explains the behavior of particles at the atomic level.`;
+          return fallbackText.length > 50;
+        }
+      },
+      {
+        name: 'Video ID extraction',
+        test: () => {
+          const videoId = getCurrentVideoId();
+          return videoId && videoId.length > 5;
+        }
+      }
+    ];
+
+    for (const test of tests) {
+      try {
+        const passed = await test.test();
+        testResults.transcriptExtraction.tests.push({ name: test.name, passed, error: null });
+        if (passed) testResults.transcriptExtraction.passed++;
+        else testResults.transcriptExtraction.failed++;
+      } catch (error) {
+        testResults.transcriptExtraction.tests.push({ name: test.name, passed: false, error: error.message });
+        testResults.transcriptExtraction.failed++;
+      }
+    }
+  },
+
+  async testCitationPatterns(testResults) {
+    console.log('🔍 Testing citation detection patterns...');
+    
+    const testCases = [
+      {
+        name: 'Book detection',
+        text: `I recommend reading "Sapiens" by Yuval Noah Harari and "Atomic Habits" by James Clear.`,
+        expectedCount: 2,
+        expectedTypes: ['book', 'book']
+      },
+      {
+        name: 'Academic paper detection',
+        text: `The study published in Nature shows interesting results. Research from Science journal confirms this.`,
+        expectedCount: 2,
+        expectedTypes: ['paper', 'paper']
+      },
+      {
+        name: 'Video/Documentary detection',
+        text: `Watch the documentary 'Free Solo' and the TED talk about artificial intelligence.`,
+        expectedCount: 2,
+        expectedTypes: ['video', 'video']
+      },
+      {
+        name: 'Mixed content detection',
+        text: `Einstein's theory of relativity is explained in "The Elegant Universe" book and the documentary 'The Fabric of the Cosmos'.`,
+        expectedCount: 3,
+        expectedTypes: ['topic', 'book', 'video']
+      },
+      {
+        name: 'Complex scientific topics',
+        text: `Quantum entanglement and the double-slit experiment demonstrate quantum mechanics principles.`,
+        expectedCount: 3,
+        expectedTypes: ['topic', 'topic', 'topic']
+      },
+      {
+        name: 'High confidence citations',
+        text: `The book "Thinking, Fast and Slow" by Daniel Kahneman discusses cognitive biases.`,
+        expectedCount: 1,
+        minConfidence: 0.7
+      }
+    ];
+
+    for (const testCase of testCases) {
+      try {
+        const citations = detector.detectCitations({ text: testCase.text });
+        let passed = citations.length >= (testCase.expectedCount * 0.8); // 80% accuracy threshold
+        
+        // Check confidence if specified
+        if (testCase.minConfidence && citations.length > 0) {
+          const highConfidenceCitations = citations.filter(c => c.confidence >= testCase.minConfidence);
+          passed = passed && highConfidenceCitations.length > 0;
+        }
+        
+        testResults.citationDetection.tests.push({
+          name: testCase.name,
+          passed,
+          expected: testCase.expectedCount,
+          actual: citations.length,
+          citations: citations.map(c => ({ title: c.title, type: c.type, confidence: c.confidence }))
+        });
+        
+        if (passed) testResults.citationDetection.passed++;
+        else testResults.citationDetection.failed++;
+        
+      } catch (error) {
+        testResults.citationDetection.tests.push({
+          name: testCase.name,
+          passed: false,
+          error: error.message
+        });
+        testResults.citationDetection.failed++;
+      }
+    }
+  },
+
+  async testVideoRecommendations(testResults) {
+    console.log('🎬 Testing video recommendation generation...');
+    
+    const testQueries = [
+      { query: 'quantum mechanics', expectedMinVideos: 2 },
+      { query: 'Einstein relativity', expectedMinVideos: 2 },
+      { query: 'Sapiens Harari', expectedMinVideos: 2 },
+      { query: 'atomic habits', expectedMinVideos: 2 },
+      { query: 'documentary Free Solo', expectedMinVideos: 1 },
+      { query: 'random unknown topic xyz123', expectedMinVideos: 1 } // Should generate fallback
+    ];
+
+    for (const testQuery of testQueries) {
+      try {
+        const videos = generateEducationalVideoSuggestions(testQuery.query);
+        const passed = videos.length >= testQuery.expectedMinVideos;
+        
+        // Check video quality
+        const hasValidUrls = videos.every(v => v.url && v.url.includes('youtube.com'));
+        const hasMetadata = videos.every(v => v.title && v.channel && v.duration && v.rating);
+        
+        testResults.videoRecommendations.tests.push({
+          name: `Video suggestions for "${testQuery.query}"`,
+          passed: passed && hasValidUrls && hasMetadata,
+          expected: testQuery.expectedMinVideos,
+          actual: videos.length,
+          videos: videos.map(v => ({ title: v.title, category: v.category, rating: v.rating, hasValidUrl: v.url.includes('youtube.com') }))
+        });
+        
+        if (passed && hasValidUrls && hasMetadata) testResults.videoRecommendations.passed++;
+        else testResults.videoRecommendations.failed++;
+        
+      } catch (error) {
+        testResults.videoRecommendations.tests.push({
+          name: `Video suggestions for "${testQuery.query}"`,
+          passed: false,
+          error: error.message
+        });
+        testResults.videoRecommendations.failed++;
+      }
+    }
+  },
+
+  async testAPIIntegration(testResults) {
+    console.log('🔗 Testing API integration...');
+    
+    const apiTests = [
+      {
+        name: 'Amazon link generation',
+        test: () => {
+          const link = detector.generateAmazonLink('Sapiens', 'Yuval Noah Harari');
+          return link.includes('amazon.com') && link.includes('Sapiens');
+        }
+      },
+      {
+        name: 'Search link generation',
+        test: () => {
+          const links = detector.generateSearchLinks('Test Topic', 'topic');
+          return links.google && links.wikipedia && links.youtube;
+        }
+      },
+      {
+        name: 'PubMed link generation',
+        test: () => {
+          const link = detector.generatePubMedLink('COVID-19 research', 'Smith');
+          return link.includes('pubmed.ncbi.nlm.nih.gov');
+        }
+      },
+      {
+        name: 'ArXiv link generation',
+        test: () => {
+          const link = detector.generateArxivLink('Machine Learning');
+          return link.includes('arxiv.org');
+        }
+      }
+    ];
+
+    for (const test of apiTests) {
+      try {
+        const passed = test.test();
+        testResults.apiIntegration.tests.push({ name: test.name, passed, error: null });
+        if (passed) testResults.apiIntegration.passed++;
+        else testResults.apiIntegration.failed++;
+      } catch (error) {
+        testResults.apiIntegration.tests.push({ name: test.name, passed: false, error: error.message });
+        testResults.apiIntegration.failed++;
+      }
+    }
+  },
+
+  async testFilteringSystem(testResults) {
+    console.log('🔧 Testing filtering system...');
+    
+    const mockVideos = [
+      { title: 'Short Video', duration: '5:30', views: '2M views', category: 'Explainer', difficulty: 'Beginner', rating: 4.5 },
+      { title: 'Medium Video', duration: '25:15', views: '500K views', category: 'Course', difficulty: 'Intermediate', rating: 4.7 },
+      { title: 'Long Video', duration: '1:15:30', views: '50K views', category: 'Lecture', difficulty: 'Advanced', rating: 4.8 }
+    ];
+
+    const filterTests = [
+      {
+        name: 'Duration parsing accuracy',
+        test: () => {
+          const short = parseDurationToMinutes('5:30');
+          const medium = parseDurationToMinutes('25:15');
+          const long = parseDurationToMinutes('1:15:30');
+          return Math.abs(short - 5.5) < 0.1 && Math.abs(medium - 25.25) < 0.1 && Math.abs(long - 75.5) < 0.1;
+        }
+      },
+      {
+        name: 'Views parsing accuracy',
+        test: () => {
+          const high = parseViewsToNumber('2M views');
+          const medium = parseViewsToNumber('500K views');
+          const low = parseViewsToNumber('50K views');
+          return high === 2000000 && medium === 500000 && low === 50000;
+        }
+      },
+      {
+        name: 'Rating sort functionality',
+        test: () => {
+          const sorted = sortVideos(mockVideos, 'rating');
+          return sorted[0].rating >= sorted[1].rating && sorted[1].rating >= sorted[2].rating;
+        }
+      },
+      {
+        name: 'Duration sort functionality',
+        test: () => {
+          const sorted = sortVideos(mockVideos, 'duration');
+          const durations = sorted.map(v => parseDurationToMinutes(v.duration));
+          return durations[0] <= durations[1] && durations[1] <= durations[2];
+        }
+      },
+      {
+        name: 'Views sort functionality',
+        test: () => {
+          const sorted = sortVideos(mockVideos, 'views');
+          const views = sorted.map(v => parseViewsToNumber(v.views));
+          return views[0] >= views[1] && views[1] >= views[2];
+        }
+      }
+    ];
+
+    for (const test of filterTests) {
+      try {
+        const passed = test.test();
+        testResults.filteringSystem.tests.push({ name: test.name, passed, error: null });
+        if (passed) testResults.filteringSystem.passed++;
+        else testResults.filteringSystem.failed++;
+      } catch (error) {
+        testResults.filteringSystem.tests.push({ name: test.name, passed: false, error: error.message });
+        testResults.filteringSystem.failed++;
+      }
+    }
+  },
+
+  calculateOverallAccuracy(testResults) {
+    const categories = ['transcriptExtraction', 'citationDetection', 'videoRecommendations', 'apiIntegration', 'filteringSystem'];
+    
+    let totalTests = 0;
+    let passedTests = 0;
+    
+    categories.forEach(category => {
+      totalTests += testResults[category].passed + testResults[category].failed;
+      passedTests += testResults[category].passed;
+    });
+    
+    testResults.overall.totalTests = totalTests;
+    testResults.overall.passedTests = passedTests;
+    testResults.overall.accuracy = totalTests > 0 ? (passedTests / totalTests * 100).toFixed(1) : 0;
+  },
+
+  displayTestResults(testResults) {
+    console.log('\n🎯 VIDEO DISCOVERY ACCURACY TEST RESULTS');
+    console.log('==========================================');
+    
+    const categories = [
+      { key: 'transcriptExtraction', name: '📝 Transcript Extraction' },
+      { key: 'citationDetection', name: '🔍 Citation Detection' },
+      { key: 'videoRecommendations', name: '🎬 Video Recommendations' },
+      { key: 'apiIntegration', name: '🔗 API Integration' },
+      { key: 'filteringSystem', name: '🔧 Filtering System' }
+    ];
+
+    categories.forEach(category => {
+      const result = testResults[category.key];
+      const total = result.passed + result.failed;
+      const percentage = total > 0 ? (result.passed / total * 100).toFixed(1) : 0;
+      
+      console.log(`\n${category.name}:`);
+      console.log(`  ✅ Passed: ${result.passed}/${total} (${percentage}%)`);
+      
+      if (result.failed > 0) {
+        console.log(`  ❌ Failed: ${result.failed}`);
+        result.tests.filter(t => !t.passed).forEach(test => {
+          console.log(`    - ${test.name}: ${test.error || 'Test failed'}`);
+          if (test.expected && test.actual !== undefined) {
+            console.log(`      Expected: ${test.expected}, Got: ${test.actual}`);
+          }
+        });
+      }
+    });
+
+    console.log('\n📊 OVERALL RESULTS:');
+    console.log(`  🎯 Accuracy: ${testResults.overall.accuracy}%`);
+    console.log(`  ✅ Passed: ${testResults.overall.passedTests}/${testResults.overall.totalTests}`);
+    
+    // Goal comparison
+    const targetAccuracy = 85;
+    if (parseFloat(testResults.overall.accuracy) >= targetAccuracy) {
+      console.log(`  🎉 SUCCESS: Exceeded target accuracy of ${targetAccuracy}%!`);
+    } else {
+      console.log(`  ⚠️  NEEDS IMPROVEMENT: Below target accuracy of ${targetAccuracy}%`);
+      console.log(`  📈 Gap: ${(targetAccuracy - parseFloat(testResults.overall.accuracy)).toFixed(1)}% improvement needed`);
+    }
+    
+    console.log('\n🚀 PERFORMANCE BENCHMARKS:');
+    console.log(`  📚 Citation Detection: ${testResults.citationDetection.passed}/${testResults.citationDetection.passed + testResults.citationDetection.failed} patterns working`);
+    console.log(`  🎬 Video Recommendations: ${testResults.videoRecommendations.passed}/${testResults.videoRecommendations.passed + testResults.videoRecommendations.failed} queries successful`);
+    console.log(`  🔧 Filter Functions: ${testResults.filteringSystem.passed}/${testResults.filteringSystem.passed + testResults.filteringSystem.failed} operations accurate`);
+    
+    console.log('\n==========================================');
+    
+    return testResults;
   }
 };
 

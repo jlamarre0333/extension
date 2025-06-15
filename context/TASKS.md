@@ -1,7 +1,7 @@
 # Citation Cross-Reference Extension - Task Board
 
 ## Doing
-- [ ] Test video discovery accuracy
+- [ ] Upgrade to NLP-based entity recognition
 
 ## To Do
 
@@ -12,7 +12,6 @@
 ### Phase 3: Video Discovery Feature (Weeks 5-6)
 
 ### Phase 4: Enhanced Detection (Weeks 7-8)
-- [ ] Upgrade to NLP-based entity recognition
 - [ ] Add support for author name detection
 - [ ] Implement context-aware citation matching
 - [ ] Add confidence scoring for detected citations
@@ -64,6 +63,7 @@
 - [x] Add video mention detection patterns
 - [x] Create video recommendation cards in sidebar
 - [x] Add filtering for video results (duration, views, relevance)
+- [x] Test video discovery accuracy
 
 ## Backlog Ideas
 - [ ] Integration with note-taking apps (Notion, Obsidian)
