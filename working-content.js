@@ -13,10 +13,16 @@ class EnhancedCitationDetector {
     this.googleBooksApiKey = 'AIzaSyBqOTz8QZ9X_8X8X8X8X8X8X8X8X8X8X8X'; // You'll need to get a real API key
   }
 
-  detectCitations(text) {
+  detectCitations(transcriptData) {
     console.log('🔍 Analyzing text for citations...');
+    
+    // Handle both old format (string) and new format (object with segments)
+    const text = typeof transcriptData === 'string' ? transcriptData : transcriptData.text;
+    const segments = typeof transcriptData === 'object' && transcriptData.segments ? transcriptData.segments : [];
+    
     console.log('📄 Text sample (first 500 chars):', text.substring(0, 500));
     console.log('📏 Total text length:', text.length);
+    console.log('⏱️ Segments available:', segments.length);
     
     const found = [];
     
@@ -276,6 +282,16 @@ class EnhancedCitationDetector {
       });
     });
 
+    // Add timestamps to citations if segments are available
+    if (segments.length > 0) {
+      found.forEach(citation => {
+        const timestamp = this.findTimestampForCitation(citation.title, segments);
+        if (timestamp !== null) {
+          citation.timestamp = timestamp;
+        }
+      });
+    }
+
     // Remove duplicates and sort by confidence
     const unique = this.removeDuplicates(found);
     const sorted = unique.sort((a, b) => b.confidence - a.confidence);
@@ -296,6 +312,26 @@ class EnhancedCitationDetector {
       .replace(/^[""']+|[""']+$/g, '')
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  findTimestampForCitation(citationTitle, segments) {
+    // Look for the citation title in the segments
+    const searchTerms = citationTitle.toLowerCase().split(' ').filter(word => word.length > 2);
+    
+    for (const segment of segments) {
+      const segmentText = segment.text.toLowerCase();
+      
+      // Check if any significant words from the citation appear in this segment
+      const matchCount = searchTerms.filter(term => segmentText.includes(term)).length;
+      
+      // If we find a good match (at least half the words or 2+ words)
+      if (matchCount >= Math.max(2, Math.ceil(searchTerms.length / 2))) {
+        console.log(`⏱️ Found timestamp for "${citationTitle}": ${segment.start}s`);
+        return Math.floor(segment.start);
+      }
+    }
+    
+    return null;
   }
 
   removeDuplicates(citations) {
@@ -1058,7 +1094,7 @@ function createUI() {
   return { toggleButton, sidebar };
 }
 
-// Get video transcript/captions
+// Get video transcript/captions with timestamps
 async function getVideoText() {
   console.log('🎬 Attempting to get real video captions...');
   
@@ -1067,21 +1103,23 @@ async function getVideoText() {
     const transcriptFromPlayer = await extractFromYouTubePlayer();
     if (transcriptFromPlayer) {
       console.log('✅ Got transcript from YouTube player data');
-      return transcriptFromPlayer;
+      return transcriptFromPlayer; // Returns {text, segments}
     }
 
     // Method 2: Try to access transcript panel
     const transcriptFromPanel = await extractFromTranscriptPanel();
     if (transcriptFromPanel) {
       console.log('✅ Got transcript from transcript panel');
-      return transcriptFromPanel;
+      // Convert to new format for consistency
+      return { text: transcriptFromPanel, segments: [] };
     }
 
     // Method 3: Try to get from video tracks
     const transcriptFromTracks = await extractFromVideoTracks();
     if (transcriptFromTracks) {
       console.log('✅ Got transcript from video tracks');
-      return transcriptFromTracks;
+      // Convert to new format for consistency
+      return { text: transcriptFromTracks, segments: [] };
     }
 
   } catch (error) {
@@ -1090,7 +1128,10 @@ async function getVideoText() {
   
   // Fallback: return sample text for testing
   console.log('📝 Using sample text for testing...');
-  return "Check out the book 'Sapiens' by Yuval Noah Harari. Also, there's an interesting study published in Science about human evolution. I recommend reading 'Atomic Habits' by James Clear.";
+  return { 
+    text: "Check out the book 'Sapiens' by Yuval Noah Harari. Also, there's an interesting study published in Science about human evolution. I recommend reading 'Atomic Habits' by James Clear. Einstein developed the theory of Quantum Mechanics. CERN is conducting experiments on Particle Physics. Quantum Entanglement is a fascinating phenomenon. The Double Slit Experiment demonstrates wave-particle duality.",
+    segments: []
+  };
 }
 
 // Extract transcript from YouTube's internal player data
@@ -1113,10 +1154,30 @@ async function extractFromYouTubePlayer() {
             );
             
             if (englishCaptions && englishCaptions.baseUrl) {
-              console.log('🎯 Found English captions URL');
-              const response = await fetch(englishCaptions.baseUrl);
-              const xmlText = await response.text();
-              return parseTranscriptXML(xmlText);
+              console.log('🎯 Found English captions URL:', englishCaptions.baseUrl);
+              try {
+                const response = await fetch(englishCaptions.baseUrl);
+                console.log('📡 Fetch response status:', response.status);
+                
+                if (!response.ok) {
+                  console.warn('❌ Fetch failed with status:', response.status);
+                  return null;
+                }
+                
+                const xmlText = await response.text();
+                console.log('📄 Raw XML length:', xmlText.length);
+                
+                if (xmlText.length === 0) {
+                  console.warn('❌ Empty XML response');
+                  return null;
+                }
+                
+                const transcriptData = parseTranscriptXML(xmlText);
+                return transcriptData; // Returns {text, segments}
+              } catch (error) {
+                console.error('❌ Error fetching captions:', error);
+                return null;
+              }
             }
           }
         }
@@ -1201,28 +1262,61 @@ async function extractFromVideoTracks() {
   return null;
 }
 
-// Parse XML transcript format
+// Parse XML transcript format with timestamps
 function parseTranscriptXML(xmlText) {
   try {
+    console.log('🔍 Parsing XML transcript, length:', xmlText.length);
+    console.log('📄 XML sample:', xmlText.substring(0, 500));
+    
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
     const textElements = xmlDoc.querySelectorAll('text');
     
-    const transcript = Array.from(textElements)
-      .map(element => element.textContent?.trim())
-      .filter(text => text && text.length > 0)
-      .join(' ');
+    console.log('📊 Found text elements:', textElements.length);
     
-    // Clean up HTML entities
-    return transcript
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'");
+    // Extract segments with timestamps
+    const segments = Array.from(textElements)
+      .map(element => {
+        const text = element.textContent?.trim();
+        const start = parseFloat(element.getAttribute('start') || '0');
+        const duration = parseFloat(element.getAttribute('dur') || '0');
+        
+        if (text && text.length > 0) {
+          const cleanText = text
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'");
+          
+          console.log(`📝 Segment: "${cleanText}" at ${start}s`);
+          
+          return {
+            text: cleanText,
+            start: start,
+            end: start + duration
+          };
+        }
+        return null;
+      })
+      .filter(segment => segment !== null);
+    
+    console.log('✅ Parsed segments:', segments.length);
+    
+    // Return both full text and segments
+    const fullText = segments.map(s => s.text).join(' ');
+    
+    console.log('📏 Full text length:', fullText.length);
+    console.log('📄 Full text sample:', fullText.substring(0, 500));
+    
+    return {
+      text: fullText,
+      segments: segments
+    };
       
   } catch (error) {
     console.warn('Failed to parse transcript XML:', error);
+    console.log('❌ XML content that failed:', xmlText);
     return null;
   }
 }
@@ -1247,9 +1341,10 @@ async function analyzeCurrentVideo() {
   console.log('🔍 Starting video analysis...');
   
   try {
-    const text = await getVideoText();
-    if (text) {
-      console.log('📝 Analyzing text for citations...');
+    const transcriptData = await getVideoText();
+    console.log('🎬 Transcript data received:', transcriptData);
+    if (transcriptData && transcriptData.text && transcriptData.text.length > 0) {
+      console.log('📝 Analyzing transcript for citations...');
       
       // Update status to show enrichment phase
       const statusDiv = document.getElementById('citations-status');
@@ -1269,8 +1364,9 @@ async function analyzeCurrentVideo() {
       }
       
       // Detect citations
-      const rawCitations = detector.detectCitations(text);
+      const rawCitations = detector.detectCitations(transcriptData);
       console.log('📚 Found raw citations:', rawCitations);
+      console.log('📊 Raw citations count:', rawCitations.length);
       
       // Filter citations with minimum confidence threshold
       const filteredCitations = rawCitations.filter(citation => citation.confidence >= 0.5);
@@ -1483,6 +1579,26 @@ function createCitationCard(citation, index, typeIcon, typeColor, confidenceColo
         ">by ${citation.author}</p>
       ` : ''}
       
+      ${citation.timestamp !== undefined ? `
+        <div style="
+          display: flex;
+          align-items: center;
+          margin: 0 0 8px 0;
+          padding: 6px 10px;
+          background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+          border-radius: 8px;
+          border: 1px solid rgba(102, 126, 234, 0.2);
+          cursor: pointer;
+        " onclick="seekToTimestamp(${citation.timestamp})">
+          <span style="font-size: 16px; margin-right: 8px;">⏰</span>
+          <span style="
+            font-size: 13px;
+            color: #667eea;
+            font-weight: 600;
+          ">Jump to ${formatTimestamp(citation.timestamp)}</span>
+        </div>
+      ` : ''}
+      
       ${citation.publishedDate ? `
         <p style="
           margin: 0 0 8px 0;
@@ -1585,6 +1701,51 @@ function createActionButtons(citation) {
   }
   
   return buttons;
+}
+
+// Format timestamp for display (converts seconds to MM:SS format)
+function formatTimestamp(seconds) {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+}
+
+// Seek video to specific timestamp
+function seekToTimestamp(seconds) {
+  console.log(`⏰ Seeking to timestamp: ${seconds}s`);
+  
+  const video = document.querySelector('video');
+  if (video) {
+    video.currentTime = seconds;
+    
+    // Show feedback to user
+    const feedback = document.createElement('div');
+    feedback.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      z-index: 999999;
+      pointer-events: none;
+    `;
+    feedback.textContent = `⏰ Jumped to ${formatTimestamp(seconds)}`;
+    document.body.appendChild(feedback);
+    
+    // Remove feedback after 2 seconds
+    setTimeout(() => {
+      if (feedback.parentNode) {
+        feedback.parentNode.removeChild(feedback);
+      }
+    }, 2000);
+  } else {
+    console.warn('Video element not found');
+  }
 }
 
 // Show error state

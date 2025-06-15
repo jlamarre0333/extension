@@ -1,7 +1,7 @@
 # Citation Cross-Reference Extension - Task Board
 
 ## Doing
-- [ ] Add timestamp synchronization with video playback
+- [ ] Improve citation confidence scoring
 
 ## To Do
 
@@ -64,6 +64,7 @@
 - [x] Fix UI button visibility issue on video navigation
 - [x] Add Wikipedia API as fallback for papers/studies
 - [x] Add Google Scholar API for research papers
+- [x] Add timestamp synchronization with video playback
 
 ## Backlog Ideas
 - [ ] Integration with note-taking apps (Notion, Obsidian)
