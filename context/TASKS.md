@@ -1,15 +1,13 @@
 # Citation Cross-Reference Extension - Task Board
 
 ## Doing
-- [ ] Test enhanced citation detection with real YouTube videos
+- [ ] Add Google Scholar API for research papers
 
 ## To Do
 
 ### Phase 1: Foundation (Weeks 1-2)
-- [ ] Add Wikipedia API as fallback for papers/studies
 
 ### Phase 2: Core Citation Features (Weeks 3-4)
-- [ ] Add Google Scholar API for research papers
 - [ ] Add timestamp synchronization with video playback
 - [ ] Improve citation confidence scoring
 
@@ -34,7 +32,16 @@
 - [ ] Create universal citation database
 - [ ] Add cross-platform synchronization
 
-### Phase 6: Polish & Launch (Weeks 11-12)
+### Phase 6: Fact-Checking Feature (Weeks 11-14)
+- [ ] Design claim detection patterns for factual statements
+- [ ] Integrate fact-checking APIs (Wikipedia, government data)
+- [ ] Build fact verification engine with confidence scoring
+- [ ] Create fact-check UI tab in sidebar
+- [ ] Add geographic and cultural context for travel content
+- [ ] Implement real-time claim verification
+- [ ] Test fact-checking accuracy on educational videos
+
+### Phase 7: Polish & Launch (Weeks 15-16)
 - [ ] Implement user preferences and settings
 - [ ] Add citation history and bookmarking
 - [ ] Create onboarding tutorial
@@ -54,6 +61,9 @@
 - [x] Integrate Google Books API for book verification
 - [x] Create citation categorization (books, papers, articles)
 - [x] Add real source links (Google Books, Amazon, Search)
+- [x] Test enhanced citation detection with real YouTube videos
+- [x] Fix UI button visibility issue on video navigation
+- [x] Add Wikipedia API as fallback for papers/studies
 
 ## Backlog Ideas
 - [ ] Integration with note-taking apps (Notion, Obsidian)
