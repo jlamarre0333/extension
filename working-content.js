@@ -452,12 +452,23 @@ Please analyze the transcript and respond with accurate JSON:
       }
     }
 
-    // Remove duplicates and sort by priority and confidence
+    // Remove duplicates and sort by comprehensive quality score
     const uniqueCitations = this.removeDuplicates(citations);
     uniqueCitations.sort((a, b) => {
+      // Calculate comprehensive quality scores
+      const scoreA = this.calculateCitationQualityScore(a);
+      const scoreB = this.calculateCitationQualityScore(b);
+      
+      // Sort by quality score (highest first)
+      if (Math.abs(scoreA - scoreB) > 0.1) {
+        return scoreB - scoreA;
+      }
+      
+      // If quality scores are similar, use other factors
       // Priority sort: high priority first
       if (a.priority === 'high' && b.priority !== 'high') return -1;
       if (b.priority === 'high' && a.priority !== 'high') return 1;
+      
       // Then by confidence
       return b.confidence - a.confidence;
     });
@@ -473,6 +484,56 @@ Please analyze the transcript and respond with accurate JSON:
     }
     
     return uniqueCitations;
+  }
+
+  calculateCitationQualityScore(citation) {
+    let qualityScore = 0;
+    const title = citation.title.toLowerCase();
+    
+    // Base score from validation if available
+    if (citation.validationScore !== undefined) {
+      qualityScore += citation.validationScore * 0.4;
+    } else {
+      qualityScore += citation.confidence * 0.4;
+    }
+    
+    // Heavy bonus for content-rich citations
+    if (this.isContentRichCitation(citation.title)) {
+      qualityScore += 0.5;
+    }
+    
+    // Penalty for simple geographic mentions
+    if (this.isSimpleGeographicMention(citation.title)) {
+      qualityScore -= 0.4;
+    }
+    
+    // Bonus for specific types of valuable content
+    if (citation.type === 'topic' && title.length > 20) {
+      qualityScore += 0.2; // Topics with detailed descriptions
+    }
+    
+    if (citation.type === 'event' && !this.isSimpleGeographicMention(citation.title)) {
+      qualityScore += 0.3; // Historical events are valuable
+    }
+    
+    // Bonus for academic/research terminology
+    const academicTerms = /\b(experiment|study|research|investigation|analysis|theory|principle|law|formula|method|technique|incident|case|project|organization|institution|agency|university|laboratory)\b/i;
+    if (academicTerms.test(title)) {
+      qualityScore += 0.25;
+    }
+    
+    // Penalty for very short citations
+    if (citation.title.length < 8) {
+      qualityScore -= 0.2;
+    }
+    
+    // Bonus for citations with multiple meaningful components
+    const meaningfulWords = title.match(/\b(experiment|study|research|investigation|analysis|incident|case|project|theory|principle|law|formula|method|technique|process|system|control|manipulation|warfare|organization|institution|government|agency|university|laboratory|historical|context|impact|connection|relationship|development|discovery|innovation)\b/g);
+    if (meaningfulWords && meaningfulWords.length >= 2) {
+      qualityScore += 0.3;
+    }
+    
+    return Math.max(0, Math.min(1, qualityScore));
   }
 
   validateCitationAccuracy(citation, fullText, analysis) {
@@ -529,19 +590,88 @@ Please analyze the transcript and respond with accurate JSON:
       score += 0.1;
     }
     
-    // Bonus for specific academic terms with named components
-    const specificPatterns = [
+    // Heavy bonus for high-value academic citations
+    const highValuePatterns = [
       /\b(theorem|formula|equation|law|principle)\b/i,
       /\b(theory of|laws of|method of)\b/i,
       /\b[A-Z][a-z]+'s\s/i, // Possessive forms like "Newton's", "Euler's"
-      /\b(complex|quadratic|linear|differential|integral)\s/i
+      /\b(complex|quadratic|linear|differential|integral)\s/i,
+      /\b(experiment|study|research|investigation|analysis|incident|case|project)\b/i,
+      /\b(CIA|FBI|government|agency|organization|institution|university|laboratory)\b/i,
+      /\b(biological|chemical|nuclear|psychological|social|political)\s(warfare|control|manipulation|experiment)\b/i
     ];
     
-    if (specificPatterns.some(pattern => pattern.test(citation))) {
-      score += 0.2;
+    if (highValuePatterns.some(pattern => pattern.test(citation))) {
+      score += 0.3; // Increased bonus for meaningful content
+    }
+    
+    // Penalty for simple geographic mentions without context
+    if (this.isSimpleGeographicMention(citation)) {
+      score -= 0.3;
+    }
+    
+    // Massive bonus for complex, content-rich citations
+    if (this.isContentRichCitation(citation)) {
+      score += 0.4;
     }
     
     return Math.max(0, Math.min(1, score));
+  }
+
+  isSimpleGeographicMention(citation) {
+    const citationLower = citation.toLowerCase().trim();
+    
+    // List of countries and regions that are too generic without context
+    const simpleGeoTerms = [
+      'united states', 'usa', 'america', 'france', 'germany', 'italy', 'spain',
+      'england', 'uk', 'britain', 'canada', 'australia', 'japan', 'china',
+      'russia', 'brazil', 'mexico', 'india', 'europe', 'asia', 'africa',
+      'california', 'texas', 'new york', 'florida', 'london', 'paris', 'berlin'
+    ];
+    
+    // Check if it's just a simple geographic mention
+    if (simpleGeoTerms.includes(citationLower)) {
+      return true;
+    }
+    
+    // Allow geographic mentions with context (e.g., "Renaissance Italy", "Cold War Russia")
+    const contextualGeoPatterns = [
+      /\b(ancient|medieval|renaissance|industrial|modern|contemporary)\s/i,
+      /\b(cold war|world war|colonial|revolutionary|imperial)\s/i,
+      /\s(incident|experiment|case|affair|crisis|revolution|war)\b/i
+    ];
+    
+    return !contextualGeoPatterns.some(pattern => pattern.test(citation));
+  }
+
+  isContentRichCitation(citation) {
+    const citationLower = citation.toLowerCase();
+    
+    // Detect content-rich citations with multiple meaningful components
+    const contentRichPatterns = [
+      // Multi-word descriptions with specific context
+      /\b\w+\s+(incident|experiment|case|affair|crisis|project|operation|study|investigation|analysis)\s+and\s+its\s+\w+/i,
+      // Use/purpose descriptions
+      /\bthe\s+use\s+of\s+\w+\s+as\s+a\s+tool\s+for\s+\w+/i,
+      // Historical context with specific events
+      /\bthe\s+historical\s+context\s+of\s+\w+/i,
+      // Connection/relationship descriptions
+      /\b\w+\s+connection\s+to\s+\w+/i,
+      // Impact/effect descriptions
+      /\b\w+\s+impact\s+on\s+\w+/i,
+      // Multiple concept combinations
+      /\b\w+\s+(and|or)\s+\w+\s+(experiments?|studies?|research|analysis)\b/i
+    ];
+    
+    // Check length - content-rich citations are typically longer
+    const hasGoodLength = citation.length > 25;
+    
+    // Check for multiple meaningful words
+    const meaningfulWords = citation.toLowerCase().match(/\b(experiment|study|research|investigation|analysis|incident|case|project|theory|principle|law|formula|method|technique|process|system|control|manipulation|warfare|organization|institution|government|agency|university|laboratory|historical|context|impact|connection|relationship|development|discovery|innovation)\b/g);
+    const hasMultipleMeaningfulWords = meaningfulWords && meaningfulWords.length >= 2;
+    
+    return contentRichPatterns.some(pattern => pattern.test(citation)) || 
+           (hasGoodLength && hasMultipleMeaningfulWords);
   }
 
   checkContextualRelevance(citation, analysis) {
@@ -619,7 +749,14 @@ Please analyze the transcript and respond with accurate JSON:
       
       // Video analysis artifacts
       'unknown video', 'unknown channel', 'video analysis', 'content analysis',
-      'video content', 'educational video', 'tutorial', 'lesson'
+      'video content', 'educational video', 'tutorial', 'lesson',
+      
+      // Common geographic locations (too generic without context)
+      'united states', 'usa', 'america', 'france', 'germany', 'italy', 'spain',
+      'england', 'uk', 'britain', 'canada', 'australia', 'japan', 'china',
+      'russia', 'brazil', 'mexico', 'india', 'europe', 'asia', 'africa',
+      'north america', 'south america', 'middle east', 'eastern europe',
+      'western europe', 'southeast asia', 'north africa', 'sub-saharan africa'
     ];
     
     const citationLower = citation.toLowerCase().trim();
