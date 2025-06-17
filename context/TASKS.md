@@ -1,7 +1,7 @@
 # Citation Cross-Reference Extension - Task Board
 
 ## Doing
-- [ ] Upgrade to NLP-based entity recognition
+- [x] Test improved citation detection with real videos
 
 ## To Do
 
@@ -12,7 +12,6 @@
 ### Phase 3: Video Discovery Feature (Weeks 5-6)
 
 ### Phase 4: Enhanced Detection (Weeks 7-8)
-- [ ] Add support for author name detection
 - [ ] Implement context-aware citation matching
 - [ ] Add confidence scoring for detected citations
 - [ ] Create user feedback system for improving accuracy
@@ -64,6 +63,10 @@
 - [x] Create video recommendation cards in sidebar
 - [x] Add filtering for video results (duration, views, relevance)
 - [x] Test video discovery accuracy
+- [x] Upgrade to NLP-based entity recognition (added support for places, people, companies, technologies, entertainment, products, history, and sports)
+- [x] Major citation detection overhaul - implemented intent-based detection with explicit citation context patterns only
+- [x] Added place and people detection - now detects locations like Malta and famous people mentioned in videos
+- [x] Added comprehensive new categories: companies (Apple, Google), technologies (AI, Blockchain), historical events (World War II, French Revolution), with vastly expanded coverage
 
 ## Backlog Ideas
 - [ ] Integration with note-taking apps (Notion, Obsidian)

@@ -129,24 +129,94 @@ class EnhancedCitationDetector {
       /(?:deep\s+dive\s+into|comprehensive\s+guide\s+to|complete\s+course\s+on)\s+([A-Z][a-zA-Z\s]{5,40})/gi
     ];
 
-    // Scientific concept patterns specifically for physics/science videos
+    // Places and locations mentioned in videos - EXPANDED & MORE ACCURATE
+    const placePatterns = [
+      // Small European countries (often discussed in travel/geography videos)
+      /(Malta|Cyprus|Iceland|Luxembourg|Monaco|Vatican|Liechtenstein|Andorra|San\s+Marino|Montenegro|Slovenia|Slovakia|Estonia|Latvia|Lithuania|Moldova)/gi,
+      // Major countries (very commonly mentioned)
+      /(United\s+States|America|Japan|China|India|Russia|Brazil|Canada|Australia|Germany|France|Italy|Spain|Greece|Turkey|Egypt|Morocco|Thailand|Vietnam|Korea|Mexico|Argentina|Chile|Peru|Poland|Ukraine|Iran|Iraq|Israel|Pakistan|Bangladesh|Indonesia|Philippines|Nigeria|South\s+Africa)/gi,
+      // Major cities worldwide
+      /(New\s+York|Los\s+Angeles|Chicago|Miami|San\s+Francisco|London|Paris|Berlin|Madrid|Rome|Milan|Venice|Florence|Amsterdam|Brussels|Vienna|Prague|Budapest|Stockholm|Copenhagen|Helsinki|Oslo|Dublin|Edinburgh|Zurich|Geneva|Moscow|Tokyo|Beijing|Shanghai|Hong\s+Kong|Singapore|Mumbai|Delhi|Dubai|Sydney|Melbourne|Toronto|Montreal)/gi,
+      // Geographic features & regions
+      /(Mediterranean|Atlantic|Pacific|Indian\s+Ocean|North\s+Sea|Baltic\s+Sea|Black\s+Sea|Caribbean|Alps|Himalayas|Andes|Rocky\s+Mountains|Sahara|Amazon|Nile|Mississippi|Thames|Rhine|Danube|Suez\s+Canal|Panama\s+Canal)/gi,
+      // World famous landmarks (tourists attractions)
+      /(Eiffel\s+Tower|Big\s+Ben|Tower\s+Bridge|Buckingham\s+Palace|Colosseum|Leaning\s+Tower|Parthenon|Acropolis|Stonehenge|Taj\s+Mahal|Great\s+Wall|Forbidden\s+City|Machu\s+Picchu|Pyramids|Sphinx|Statue\s+of\s+Liberty|Empire\s+State|Golden\s+Gate|Sydney\s+Opera|Christ\s+the\s+Redeemer)/gi,
+      // Historical places & civilizations
+      /(Ancient\s+Rome|Ancient\s+Greece|Ancient\s+Egypt|Mesopotamia|Byzantine\s+Empire|Ottoman\s+Empire|Holy\s+Roman\s+Empire|British\s+Empire|Aztec\s+Empire|Inca\s+Empire|Maya\s+Civilization|Silk\s+Road|Pompeii|Troy)/gi,
+      // Travel/location context with validation
+      /(?:visited?|travel(?:ed|ing)?\s+to|went\s+to|been\s+to|lived?\s+in|from|flew\s+to)\s+([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})?)/gi,
+      // Geographic context with better validation
+      /(?:country|nation|island|city|capital|region|territory|state|province|continent)\s+(?:of\s+|called\s+|named\s+)?([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})?)/gi,
+      // Context: "in Malta", "to Japan" etc with stricter matching
+      /\b(?:in|to|from|across|through)\s+([A-Z][a-z]{3,}(?:\s+[A-Z][a-z]{3,})?)\b(?=\s|[,.!?]|$)/gi
+    ];
+
+    // People mentioned in videos - VASTLY EXPANDED
+    const peoplePatterns = [
+      // Historical/Political leaders
+      /(Napoleon|Bonaparte|Churchill|Roosevelt|Gandhi|Martin\s+Luther\s+King|Nelson\s+Mandela|Abraham\s+Lincoln|George\s+Washington|Thomas\s+Jefferson|John\s+F\s+Kennedy|Julius\s+Caesar|Alexander\s+the\s+Great|Cleopatra|Hitler|Stalin|Mao|Lenin|Mussolini|Caesar|Augustus|Charlemagne|William\s+the\s+Conqueror)/gi,
+      // Scientists & Inventors
+      /(Albert\s+Einstein|Isaac\s+Newton|Charles\s+Darwin|Nikola\s+Tesla|Thomas\s+Edison|Marie\s+Curie|Galileo|Copernicus|Kepler|Stephen\s+Hawking|Richard\s+Feynman|Carl\s+Sagan|Alan\s+Turing|Watson|Crick|Mendel|Pasteur|Fleming|Bohr|Heisenberg|Schrödinger|Planck|Faraday|Maxwell)/gi,
+      // Artists, Writers & Musicians
+      /(William\s+Shakespeare|Leonardo\s+da\s+Vinci|Michelangelo|Pablo\s+Picasso|Vincent\s+van\s+Gogh|Claude\s+Monet|Salvador\s+Dali|Mozart|Beethoven|Bach|Chopin|Tchaikovsky|Vivaldi|Hemingway|Tolkien|Dickens|Austen|Orwell|Kafka|Dostoyevsky)/gi,
+      // Modern tech/business figures
+      /(Steve\s+Jobs|Bill\s+Gates|Elon\s+Musk|Mark\s+Zuckerberg|Jeff\s+Bezos|Warren\s+Buffett|Tim\s+Cook|Satya\s+Nadella|Larry\s+Page|Sergey\s+Brin|Jack\s+Ma|Richard\s+Branson|Oprah\s+Winfrey|Donald\s+Trump|Barack\s+Obama)/gi,
+      // Philosophers & Thinkers
+      /(Socrates|Plato|Aristotle|Confucius|Buddha|Lao\s+Tzu|Kant|Nietzsche|Descartes|Locke|Hume|Rousseau|Voltaire|Marx|Freud|Jung)/gi,
+      // Explorers & Adventurers
+      /(Christopher\s+Columbus|Marco\s+Polo|Vasco\s+da\s+Gama|Magellan|Cook|Shackleton|Amundsen|Scott|Hillary|Tenzing)/gi,
+      // Context mentions with better validation
+      /(?:according\s+to|says|mentioned\s+by|quotes?|cited\s+by|work\s+of)\s+([A-Z][a-z]{2,}\s+[A-Z][a-z]{2,})/gi,
+      // "Person said" or "Person believes"
+      /([A-Z][a-z]{2,}\s+[A-Z][a-z]{2,})\s+(?:said|says|believes?|thinks?|argues?|claims?|states?|wrote|published|discovered)/gi
+    ];
+
+    // Companies and Organizations - VASTLY EXPANDED
+    const companyPatterns = [
+      // Tech giants (very commonly mentioned)
+      /(Apple|Google|Microsoft|Amazon|Facebook|Meta|Tesla|Netflix|YouTube|Twitter|Instagram|TikTok|Spotify|Uber|Airbnb|PayPal|eBay|LinkedIn|Zoom|Slack|Adobe|Oracle|IBM|Intel|NVIDIA|AMD|Salesforce|Dropbox|Snapchat|Pinterest|Reddit)/gi,
+      // Traditional companies & brands
+      /(McDonald's|Coca-Cola|Pepsi|Disney|Nike|Adidas|Samsung|Sony|Toyota|BMW|Mercedes|Ford|General\s+Motors|Walmart|Target|Starbucks|KFC|Burger\s+King|Visa|Mastercard|American\s+Express|FedEx|UPS|DHL)/gi,
+      // Financial & consulting
+      /(Goldman\s+Sachs|JPMorgan|Bank\s+of\s+America|Wells\s+Fargo|Chase|Citibank|McKinsey|Deloitte|PwC|Ernst\s+Young|KPMG|BlackRock|Berkshire\s+Hathaway)/gi,
+      // Media & entertainment
+      /(CNN|BBC|Fox\s+News|New\s+York\s+Times|Washington\s+Post|Wall\s+Street\s+Journal|Reuters|Associated\s+Press|Warner\s+Bros|Universal|Paramount|HBO|ESPN)/gi
+    ];
+
+    // Technologies and Concepts - EXPANDED
+    const technologyPatterns = [
+      // Modern tech concepts (very relevant today)
+      /(Artificial\s+Intelligence|Machine\s+Learning|Deep\s+Learning|Neural\s+Networks|Blockchain|Cryptocurrency|Bitcoin|Ethereum|NFT|Virtual\s+Reality|Augmented\s+Reality|Internet\s+of\s+Things|IoT|5G|Cloud\s+Computing|Edge\s+Computing)/gi,
+      // Programming & development
+      /(JavaScript|Python|Java|C\+\+|React|Angular|Node\.js|Docker|Kubernetes|AWS|Azure|GitHub|Stack\s+Overflow|API|Database|SQL|NoSQL|DevOps|Agile|Scrum)/gi,
+      // Scientific/medical tech
+      /(Quantum\s+Computing|Nanotechnology|Biotechnology|Genetic\s+Engineering|CRISPR|Gene\s+Therapy|Stem\s+Cells|3D\s+Printing|Robotics|Automation|Renewable\s+Energy|Solar\s+Power|Wind\s+Power|Nuclear\s+Energy|Fusion)/gi,
+      // Business/finance tech
+      /(Fintech|Cryptocurrency|Digital\s+Currency|E-commerce|SaaS|Platform\s+Economy|Sharing\s+Economy|Gig\s+Economy|Remote\s+Work|Digital\s+Transformation)/gi
+    ];
+
+    // Historical Events and Periods - NEW CATEGORY
+    const eventPatterns = [
+      // Major wars & conflicts
+      /(World\s+War\s+I|World\s+War\s+II|First\s+World\s+War|Second\s+World\s+War|Cold\s+War|Vietnam\s+War|Korean\s+War|Gulf\s+War|Iraq\s+War|Afghanistan\s+War|Civil\s+War|Revolutionary\s+War)/gi,
+      // Historical periods
+      /(Renaissance|Industrial\s+Revolution|Enlightenment|Middle\s+Ages|Medieval\s+Period|Dark\s+Ages|Victorian\s+Era|Roaring\s+Twenties|Great\s+Depression|Space\s+Race|Information\s+Age)/gi,
+      // Major historical events
+      /(Moon\s+Landing|Fall\s+of\s+Berlin\s+Wall|9\/11|September\s+11|Pearl\s+Harbor|D-Day|Battle\s+of\s+Waterloo|French\s+Revolution|Russian\s+Revolution|American\s+Revolution|Boston\s+Tea\s+Party|Declaration\s+of\s+Independence)/gi,
+      // Cultural/social movements
+      /(Civil\s+Rights\s+Movement|Women's\s+Suffrage|Feminist\s+Movement|Environmental\s+Movement|Industrial\s+Revolution|Digital\s+Revolution|Sexual\s+Revolution|Counter-Culture)/gi
+    ];
+
+    // Scientific concept patterns - More focused but still comprehensive
     const scientificConceptPatterns = [
-      // Physics theories and principles - high confidence
-      /(Quantum\s+Mechanics|Quantum\s+Physics|Relativity|General\s+Relativity|Special\s+Relativity|Thermodynamics|Electromagnetism|String\s+Theory|Loop\s+Quantum\s+Gravity)/gi,
-      // Quantum mechanics concepts - high confidence  
-      /(Wave\s+Function|Superposition|Entanglement|Quantum\s+Entanglement|Schrödinger\s+Equation|Heisenberg\s+Uncertainty\s+Principle|Observer\s+Effect|Quantum\s+Tunneling|Decoherence)/gi,
-      // Mathematical concepts - medium confidence
-      /(Probability\s+Amplitude|Wave\s+Equation|Fourier\s+Transform|Linear\s+Algebra|Complex\s+Numbers|Hilbert\s+Space)/gi,
-      // Physics phenomena - medium confidence
-      /(Interference|Diffraction|Double\s+Slit|Bell\s+Inequality|EPR\s+Paradox|Quantum\s+State|Measurement\s+Problem)/gi,
-      // Scientific fields - medium confidence
-      /(Particle\s+Physics|Condensed\s+Matter|Astrophysics|Cosmology|Theoretical\s+Physics|Experimental\s+Physics)/gi,
-      // Technology/applications - medium confidence
-      /(Quantum\s+Computer|Quantum\s+Computing|Laser|MRI|Electron\s+Microscope|Particle\s+Accelerator)/gi,
-      // Scientific institutions - medium confidence
-      /(CERN|MIT|Stanford|Harvard|Caltech|NIST|Max\s+Planck\s+Institute)/gi,
-      // Famous scientists - medium confidence
-      /(Einstein|Schrödinger|Heisenberg|Bohr|Feynman|Planck|Newton|Maxwell|Hawking|Bell)/gi
+      // Physics theories (when explicitly discussed)
+      /(Quantum\s+Mechanics|General\s+Relativity|Special\s+Relativity|String\s+Theory|Big\s+Bang\s+Theory|Theory\s+of\s+Evolution|Relativity\s+Theory)/gi,
+      // Scientific principles & concepts
+      /(?:law\s+of|principle\s+of|theory\s+of|concept\s+of)\s+(Thermodynamics|Conservation|Gravity|Electromagnetism|Natural\s+Selection|Quantum\s+Entanglement|Wave-Particle\s+Duality|Uncertainty\s+Principle)/gi,
+      // Famous experiments & discoveries
+      /(Double\s+Slit\s+Experiment|Schrödinger'?s?\s+Cat|Manhattan\s+Project|Human\s+Genome\s+Project|Higgs\s+Boson|Discovery\s+of\s+DNA|Penicillin\s+Discovery)/gi,
+      // Scientific fields
+      /(Quantum\s+Physics|Astrophysics|Neuroscience|Genetics|Biotechnology|Nanotechnology|Climate\s+Science|Marine\s+Biology|Space\s+Exploration)/gi
     ];
 
     // Process video patterns
@@ -310,31 +380,152 @@ class EnhancedCitationDetector {
       });
     });
 
-    // Process scientific concept patterns
+    // Process place patterns - THIS IS WHAT THE USER WANTS!
+    placePatterns.forEach((pattern, index) => {
+      const matches = [...text.matchAll(pattern)];
+      console.log(`🌍 Place pattern ${index} found ${matches.length} matches`);
+      
+      matches.forEach(match => {
+        const place = match[1] || match[0]; // Some patterns capture the whole match
+        
+        if (place && place.length >= 3 && place.length <= 40 && this.isValidPlace(place)) {
+          let confidence = 0.9; // High confidence for places
+          
+          // Boost confidence for specific country/city patterns
+          if (index <= 2) confidence = 0.95; // Direct mentions of countries/cities
+          if (index === 3 || index === 4) confidence = 0.9; // Geographic features and landmarks
+          if (index >= 6) confidence = 0.8; // Context-based mentions
+          
+          console.log(`🌍 Found place: "${place}" (confidence: ${confidence})`);
+          
+          found.push({
+            title: this.cleanTitle(place),
+            author: null,
+            type: 'place',
+            confidence: Math.min(confidence, 1.0),
+            source: 'place_pattern_' + index
+          });
+        }
+      });
+    });
+
+    // Process people patterns
+    peoplePatterns.forEach((pattern, index) => {
+      const matches = [...text.matchAll(pattern)];
+      console.log(`👤 People pattern ${index} found ${matches.length} matches`);
+      
+      matches.forEach(match => {
+        const person = match[1] || match[0];
+        
+        if (person && person.length >= 3 && person.length <= 50 && this.isValidPerson(person)) {
+          let confidence = 0.85; // High confidence for well-known people
+          
+          // Higher confidence for historical/famous figures
+          if (index <= 3) confidence = 0.9; // Historical, scientific, artistic, modern figures
+          if (index === 4) confidence = 0.75; // Context-based mentions
+          
+          console.log(`👤 Found person: "${person}" (confidence: ${confidence})`);
+          
+          found.push({
+            title: this.cleanTitle(person),
+            author: null,
+            type: 'person',
+            confidence: Math.min(confidence, 1.0),
+            source: 'person_pattern_' + index
+          });
+        }
+      });
+    });
+
+    // Process company patterns
+    companyPatterns.forEach((pattern, index) => {
+      const matches = [...text.matchAll(pattern)];
+      console.log(`🏢 Company pattern ${index} found ${matches.length} matches`);
+      
+      matches.forEach(match => {
+        const company = match[1] || match[0];
+        
+        if (company && company.length >= 2 && company.length <= 40 && this.isValidCompany(company)) {
+          let confidence = 0.9; // High confidence for well-known companies
+          
+          console.log(`🏢 Found company: "${company}" (confidence: ${confidence})`);
+          
+          found.push({
+            title: this.cleanTitle(company),
+            author: null,
+            type: 'company',
+            confidence: Math.min(confidence, 1.0),
+            source: 'company_pattern_' + index
+          });
+        }
+      });
+    });
+
+    // Process technology patterns
+    technologyPatterns.forEach((pattern, index) => {
+      const matches = [...text.matchAll(pattern)];
+      console.log(`💻 Technology pattern ${index} found ${matches.length} matches`);
+      
+      matches.forEach(match => {
+        const technology = match[1] || match[0];
+        
+        if (technology && technology.length >= 3 && technology.length <= 50 && this.isValidTechnology(technology)) {
+          let confidence = 0.85; // High confidence for tech terms
+          
+          console.log(`💻 Found technology: "${technology}" (confidence: ${confidence})`);
+          
+          found.push({
+            title: this.cleanTitle(technology),
+            author: null,
+            type: 'technology',
+            confidence: Math.min(confidence, 1.0),
+            source: 'technology_pattern_' + index
+          });
+        }
+      });
+    });
+
+    // Process historical event patterns
+    eventPatterns.forEach((pattern, index) => {
+      const matches = [...text.matchAll(pattern)];
+      console.log(`📜 Event pattern ${index} found ${matches.length} matches`);
+      
+      matches.forEach(match => {
+        const event = match[1] || match[0];
+        
+        if (event && event.length >= 5 && event.length <= 60 && this.isValidEvent(event)) {
+          let confidence = 0.9; // High confidence for historical events
+          
+          console.log(`📜 Found historical event: "${event}" (confidence: ${confidence})`);
+          
+          found.push({
+            title: this.cleanTitle(event),
+            author: null,
+            type: 'event',
+            confidence: Math.min(confidence, 1.0),
+            source: 'event_pattern_' + index
+          });
+        }
+      });
+    });
+
+    // Process scientific concept patterns (enhanced)
     scientificConceptPatterns.forEach((pattern, index) => {
       const matches = [...text.matchAll(pattern)];
       console.log(`🔬 Science pattern ${index} found ${matches.length} matches`);
       
       matches.forEach(match => {
-        const concept = match[1];
+        const concept = match[1] || match[0];
         
-        if (concept && concept.length >= 3 && concept.length <= 60) {
-          let confidence = 0.8; // High confidence for scientific concepts
-          
-          // Boost confidence based on pattern type
-          if (index <= 1) confidence = 0.9; // Physics theories and quantum concepts
-          if (index === 6 || index === 7) confidence = 0.85; // Institutions and scientists
-          if (index >= 2 && index <= 5) confidence = 0.75; // Other scientific concepts
+        if (concept && concept.length >= 5 && concept.length <= 60) {
+          let confidence = 0.85; // High confidence for scientific concepts
           
           console.log(`🔬 Found scientific concept: "${concept}" (confidence: ${confidence})`);
-          
-          // Classify the most academic concepts as papers, others as topics
-          const isPaper = index <= 3; // Physics theories, quantum concepts, math, and phenomena
           
           found.push({
             title: this.cleanTitle(concept),
             author: null,
-            type: isPaper ? 'paper' : 'topic',
+            type: 'topic',
             confidence: Math.min(confidence, 1.0),
             source: 'science_pattern_' + index
           });
@@ -471,6 +662,154 @@ class EnhancedCitationDetector {
             scientificTerms.some(term => topicLower.includes(term)));
   }
 
+  isValidPlace(place) {
+    const placeLower = place.toLowerCase();
+    
+    // Filter out common false positives
+    const invalidPlaces = [
+      'this', 'that', 'these', 'those', 'here', 'there', 'where', 
+      'in', 'at', 'on', 'to', 'from', 'the', 'and', 'or', 'but',
+      'visit', 'travel', 'go', 'been', 'country', 'city', 'island',
+      'good', 'bad', 'great', 'amazing', 'beautiful', 'nice'
+    ];
+    
+    if (invalidPlaces.includes(placeLower)) {
+      return false;
+    }
+    
+    // Must have at least one alphabetic character
+    if (!/[a-zA-Z]/.test(place)) {
+      return false;
+    }
+    
+    // Should start with capital letter (proper noun)
+    if (!/^[A-Z]/.test(place)) {
+      return false;
+    }
+    
+    // Should not contain too many numbers
+    const numberCount = (place.match(/\d/g) || []).length;
+    if (numberCount > 0) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  isValidPerson(person) {
+    const personLower = person.toLowerCase();
+    
+    // Filter out common false positives
+    const invalidPeople = [
+      'this', 'that', 'these', 'those', 'he', 'she', 'they', 'we', 'you', 'me',
+      'him', 'her', 'them', 'us', 'according', 'says', 'by', 'from',
+      'good', 'bad', 'great', 'amazing', 'nice', 'the', 'and', 'or'
+    ];
+    
+    if (invalidPeople.includes(personLower)) {
+      return false;
+    }
+    
+    // Must have at least one alphabetic character
+    if (!/[a-zA-Z]/.test(person)) {
+      return false;
+    }
+    
+    // Should start with capital letter (proper noun)
+    if (!/^[A-Z]/.test(person)) {
+      return false;
+    }
+    
+    // Should not contain numbers
+    if (/\d/.test(person)) {
+      return false;
+    }
+    
+    // Should not be all uppercase
+    if (person === person.toUpperCase() && person.length > 3) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  isValidCompany(company) {
+    const companyLower = company.toLowerCase();
+    
+    // Filter out common false positives
+    const invalidCompanies = [
+      'this', 'that', 'these', 'those', 'here', 'there',
+      'company', 'business', 'organization', 'corporation',
+      'good', 'bad', 'great', 'amazing', 'nice'
+    ];
+    
+    if (invalidCompanies.includes(companyLower)) {
+      return false;
+    }
+    
+    // Must have at least one alphabetic character
+    if (!/[a-zA-Z]/.test(company)) {
+      return false;
+    }
+    
+    // Should not contain only lowercase (proper nouns should be capitalized)
+    if (company.length > 3 && company === company.toLowerCase()) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  isValidTechnology(technology) {
+    const techLower = technology.toLowerCase();
+    
+    // Filter out common false positives
+    const invalidTech = [
+      'this', 'that', 'these', 'those', 'here', 'there',
+      'technology', 'tech', 'system', 'platform',
+      'good', 'bad', 'great', 'amazing', 'nice'
+    ];
+    
+    if (invalidTech.includes(techLower)) {
+      return false;
+    }
+    
+    // Must have at least one alphabetic character
+    if (!/[a-zA-Z]/.test(technology)) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  isValidEvent(event) {
+    const eventLower = event.toLowerCase();
+    
+    // Filter out common false positives
+    const invalidEvents = [
+      'this', 'that', 'these', 'those', 'here', 'there',
+      'event', 'period', 'time', 'era', 'age',
+      'good', 'bad', 'great', 'amazing', 'terrible'
+    ];
+    
+    if (invalidEvents.includes(eventLower)) {
+      return false;
+    }
+    
+    // Must have at least one alphabetic character
+    if (!/[a-zA-Z]/.test(event)) {
+      return false;
+    }
+    
+    // Should contain meaningful words
+    const meaningfulWords = ['war', 'revolution', 'movement', 'age', 'era', 'period', 'landing', 'battle', 'declaration'];
+    if (event.length > 15 && !meaningfulWords.some(word => eventLower.includes(word))) {
+      return false;
+    }
+    
+    return true;
+  }
+
   isValidVideoTitle(title) {
     // Filter out common false positives for video titles
     const invalidPatterns = [
@@ -545,6 +884,16 @@ class EnhancedCitationDetector {
           enrichedData = await this.enrichVideo(citation.title, citation.author);
         } else if (citation.type === 'topic') {
           enrichedData = await this.searchWikipedia(citation.title, 'topic');
+        } else if (citation.type === 'place') {
+          enrichedData = await this.searchWikipedia(citation.title, 'place');
+        } else if (citation.type === 'person') {
+          enrichedData = await this.searchWikipedia(citation.title, 'person');
+        } else if (citation.type === 'company') {
+          enrichedData = await this.searchWikipedia(citation.title, 'company');
+        } else if (citation.type === 'technology') {
+          enrichedData = await this.searchWikipedia(citation.title, 'technology');
+        } else if (citation.type === 'event') {
+          enrichedData = await this.searchWikipedia(citation.title, 'event');
         }
         
         const finalCitation = {
@@ -3084,11 +3433,21 @@ function updateCitationsUI(citations) {
         const typeIcon = citation.type === 'book' ? '📚' : 
                        citation.type === 'product' ? '🛍️' : 
                        citation.type === 'video' ? '🎬' :
-                       citation.type === 'topic' ? '💡' : '📄';
+                       citation.type === 'topic' ? '💡' : 
+                       citation.type === 'place' ? '🌍' :
+                       citation.type === 'person' ? '👤' : 
+                       citation.type === 'company' ? '🏢' :
+                       citation.type === 'technology' ? '💻' :
+                       citation.type === 'event' ? '📜' : '📄';
         const typeColor = citation.type === 'book' ? '#8b5cf6' : 
                         citation.type === 'product' ? '#f59e0b' : 
                         citation.type === 'video' ? '#dc2626' :
-                        citation.type === 'topic' ? '#10b981' : '#6b7280';
+                        citation.type === 'topic' ? '#10b981' : 
+                        citation.type === 'place' ? '#059669' :
+                        citation.type === 'person' ? '#7c3aed' : 
+                        citation.type === 'company' ? '#1f2937' :
+                        citation.type === 'technology' ? '#0ea5e9' :
+                        citation.type === 'event' ? '#dc2626' : '#6b7280';
         const confidenceColor = citation.confidence > 0.7 ? '#10b981' : citation.confidence > 0.5 ? '#f59e0b' : '#ef4444';
         
         return createCitationCard(citation, index, typeIcon, typeColor, confidenceColor);
@@ -3103,7 +3462,7 @@ function updateCitationsUI(citations) {
         ">
           <div style="font-size: 48px; margin-bottom: 12px; opacity: 0.5;">📖</div>
           <div style="font-weight: 600; margin-bottom: 4px;">No general citations detected</div>
-          <div style="font-size: 12px;">Books, videos, products, and topics will appear here</div>
+          <div style="font-size: 12px;">Places, people, companies, technologies, events, books, videos, and topics will appear here</div>
         </div>
       `;
     }

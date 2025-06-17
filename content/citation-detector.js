@@ -12,43 +12,60 @@ class CitationDetector {
    */
   initializePatterns() {
     return {
+      // Books - only when explicitly cited or referenced
       books: [
-        // "book called 'Title'" or "book titled 'Title'"
-        /(?:book|novel|memoir|biography)(?:\s+called|\s+titled|\s+named)?\s*[""']([^""']+)[""']/gi,
-        // "'Title' by Author"
-        /[""']([^""']+)[""']\s+by\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/gi,
-        // "Author wrote 'Title'"
-        /(?:author|writer)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(?:wrote|published)\s+[""']([^""']+)[""']/gi,
-        // "in his book 'Title'"
-        /(?:in|from)\s+(?:his|her|their)?\s*(?:book|novel)\s+[""']([^""']+)[""']/gi,
-        // "the book 'Title'"
-        /(?:the|this)\s+book\s+[""']([^""']+)[""']/gi
+        // "book called/titled 'Title'" or "book named 'Title'"
+        /(?:book|novel|memoir|biography|autobiography)\s+(?:called|titled|named|entitled)\s*[""']([^""']{8,80})[""']/gi,
+        // "'Title' by Author" - explicit book citation
+        /[""']([^""']{10,80})[""']\s+by\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})/gi,
+        // "Author's book 'Title'" - explicit ownership
+        /([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})'s\s+(?:book|novel|memoir|biography)\s+[""']([^""']{8,80})[""']/gi,
+        // "in his/her book 'Title'" - referencing content
+        /(?:in|from)\s+(?:his|her|their)\s+(?:book|novel|memoir|biography)\s+[""']([^""']{8,80})[""']/gi,
+        // "I read the book 'Title'" - explicit reading reference
+        /(?:I\s+read|read\s+the|reading\s+the)\s+(?:book|novel)\s+[""']([^""']{8,80})[""']/gi,
+        // "Author wrote 'Title'" - authorship citation
+        /([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\s+(?:wrote|published|authored)\s+[""']([^""']{8,80})[""']/gi,
+        // "the book 'Title' talks about" - explicit book reference
+        /(?:the|this)\s+(?:book|novel)\s+[""']([^""']{8,80})[""']\s+(?:talks\s+about|discusses|explains|covers)/gi
       ],
+      
+      // Research papers and studies - only academic citations
       papers: [
-        // "study published in Journal"
-        /(?:study|research|paper|article)\s+(?:published\s+)?(?:in\s+)?(?:the\s+)?([A-Z][^.!?]+(?:Journal|Review|Science|Nature|Cell|PNAS))/gi,
-        // "journal called 'Name'"
-        /(?:journal|publication)\s+(?:called|named)?\s*[""']?([A-Z][^""',.!?]+)[""']?/gi,
-        // "researchers at Institution found"
-        /(?:researchers?|scientists?)\s+(?:at\s+)?([A-Z][^.!?]+(?:University|Institute|Lab|Laboratory))\s+(?:found|discovered|showed)/gi,
-        // "according to a study"
-        /(?:according\s+to|based\s+on)\s+(?:a\s+)?(?:study|research)\s+(?:by\s+)?([A-Z][^.!?]+)/gi
+        // "study published in Journal" - explicit academic reference
+        /(?:study|research|paper|article)\s+(?:published|appearing)\s+in\s+(?:the\s+)?([A-Z][^.!?]{10,60}(?:Journal|Review|Science|Nature|Cell|PNAS|Proceedings))/gi,
+        // "according to a study in/from Journal" - explicit study citation
+        /(?:according\s+to|based\s+on)\s+(?:a\s+)?(?:study|research|paper)\s+(?:in|from|published\s+in)\s+([A-Z][^.!?]{10,60})/gi,
+        // "researchers at Institution found/discovered" - explicit research citation
+        /(?:researchers|scientists)\s+(?:at|from)\s+([A-Z][^.!?]{10,60}(?:University|Institute|Laboratory|College))\s+(?:found|discovered|showed|published|concluded)/gi,
+        // "the study shows/found/concluded" - explicit study reference
+        /(?:the|this|that)\s+(?:study|research|paper)\s+(?:shows|found|concluded|demonstrates|reveals)\s+(?:that\s+)?([A-Z][^.!?]{15,100})/gi,
+        // Famous journals by name
+        /(Nature|Science|Cell|PNAS|New\s+England\s+Journal\s+of\s+Medicine|The\s+Lancet|JAMA)\s+(?:published|reported|found)/gi
       ],
+      
+      // Videos and documentaries - only when explicitly referenced
       videos: [
-        // "video called 'Title'"
-        /(?:video|clip|interview|documentary)\s+(?:called|titled|named)\s*[""']([^""']+)[""']/gi,
-        // "watch the video 'Title'"
-        /(?:watch|see|check out)\s+(?:the\s+)?(?:video|clip)\s+[""']([^""']+)[""']/gi,
-        // "YouTube video" or "TED talk"
-        /(?:YouTube\s+video|TED\s+talk|interview)\s+(?:with\s+|about\s+|on\s+)?([A-Z][^.!?]+)/gi,
-        // "there's a great video"
-        /(?:there's|there\s+is)\s+(?:a\s+)?(?:great|good|interesting)\s+(?:video|clip)\s+(?:called\s+)?[""']?([^""'.!?]+)[""']?/gi
+        // "watch the documentary/video 'Title'" - explicit viewing recommendation
+        /(?:watch|see|check\s+out)\s+(?:the\s+)?(?:documentary|video|film|movie)\s+[""']([^""']{8,60})[""']/gi,
+        // "documentary/video called/titled 'Title'" - explicit naming
+        /(?:documentary|video|film|movie)\s+(?:called|titled|named|entitled)\s+[""']([^""']{8,60})[""']/gi,
+        // "TED talk by/about" - explicit TED reference
+        /(?:TED\s+talk|TEDx\s+talk)\s+(?:by|about|called)\s+[""']?([^""']{8,50})[""']?/gi,
+        // "YouTube channel called" - explicit channel reference
+        /(?:YouTube\s+channel|channel)\s+(?:called|named)\s+[""']([^""']{5,40})[""']/gi,
+        // "there's a great video about" - explicit recommendation
+        /(?:there's|there\s+is)\s+(?:a\s+)?(?:great|good|excellent|amazing)\s+(?:documentary|video)\s+(?:about|on|called)\s+[""']([^""']{8,60})[""']/gi
       ],
+      
+      // Only very explicit general citations
       general: [
-        // Quoted titles that might be anything
-        /[""']([A-Z][^""']{10,})[""']/gi,
-        // "the work of Author"
-        /(?:the\s+work\s+of|work\s+by)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/gi
+        // Quoted titles with explicit citation context
+        /(?:mentioned|referenced|cited|discussed)\s+[""']([A-Z][^""']{10,80})[""']/gi,
+        // "the work of Author" - explicit work reference
+        /(?:the|this)\s+work\s+(?:of|by)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})/gi,
+        // "according to Author" - explicit attribution
+        /(?:according\s+to|says|states)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})/gi
       ]
     };
   }
@@ -119,38 +136,63 @@ class CitationDetector {
    * Calculate confidence score for a citation
    */
   calculateConfidence(fullMatch, type, title) {
-    let confidence = 0.5; // Base confidence
+    // Start with high confidence since patterns are now very specific
+    let confidence = 0.8;
 
-    // Boost confidence based on explicit indicators
-    const indicators = {
-      books: ['book', 'novel', 'memoir', 'biography', 'author', 'wrote'],
-      papers: ['study', 'research', 'journal', 'published', 'researchers'],
-      videos: ['video', 'clip', 'YouTube', 'TED', 'interview', 'documentary']
-    };
-
-    const typeIndicators = indicators[type] || [];
     const matchLower = fullMatch.toLowerCase();
     
-    for (const indicator of typeIndicators) {
+    // Boost for strong citation indicators
+    const strongIndicators = {
+      books: ['called', 'titled', 'named', 'entitled', 'by', 'wrote', 'authored', 'published'],
+      papers: ['published in', 'according to', 'study found', 'research shows', 'researchers at'],
+      videos: ['watch', 'see', 'check out', 'called', 'titled', 'TED talk'],
+      general: ['mentioned', 'referenced', 'cited', 'discussed', 'according to', 'work of']
+    };
+
+    const indicators = strongIndicators[type] || [];
+    let indicatorCount = 0;
+    
+    for (const indicator of indicators) {
       if (matchLower.includes(indicator)) {
-        confidence += 0.1;
+        indicatorCount++;
+        confidence += 0.05;
       }
     }
 
-    // Boost for proper formatting (quotes, capitalization)
-    if (/[""']/.test(fullMatch)) confidence += 0.1;
-    if (/^[A-Z]/.test(title)) confidence += 0.1;
-    if (title.length > 10) confidence += 0.1;
-    if (title.length > 30) confidence += 0.1;
+    // Strong boost for quotation marks (explicit citation)
+    if (/[""']/.test(fullMatch)) {
+      confidence += 0.1;
+    }
 
-    // Reduce confidence for very short or very long titles
-    if (title.length < 5) confidence -= 0.2;
-    if (title.length > 100) confidence -= 0.2;
+    // Boost for proper title formatting
+    if (/^[A-Z]/.test(title)) {
+      confidence += 0.05;
+    }
 
-    // Reduce confidence for common false positives
-    const falsePositives = ['this video', 'that book', 'the study', 'my research'];
-    if (falsePositives.some(fp => title.toLowerCase().includes(fp))) {
-      confidence -= 0.3;
+    // Length-based scoring for titles
+    if (title.length >= 15 && title.length <= 60) {
+      confidence += 0.05; // Sweet spot for title length
+    } else if (title.length < 8) {
+      confidence -= 0.2; // Too short, probably not a real title
+    } else if (title.length > 80) {
+      confidence -= 0.15; // Too long, probably captured too much
+    }
+
+    // Boost for multiple indicators (stronger citation context)
+    if (indicatorCount >= 2) {
+      confidence += 0.1;
+    }
+
+    // Penalty for generic/vague titles
+    const genericWords = ['this', 'that', 'something', 'anything', 'everything'];
+    if (genericWords.some(word => title.toLowerCase().includes(word))) {
+      confidence -= 0.4;
+    }
+
+    // Penalty for obviously wrong captures
+    const obviouslyWrong = ['bell tower', 'according to', 'the study shows', 'in this video'];
+    if (obviouslyWrong.some(wrong => title.toLowerCase().includes(wrong))) {
+      confidence -= 0.6;
     }
 
     return Math.max(0, Math.min(1, confidence));
@@ -160,24 +202,54 @@ class CitationDetector {
    * Check if citation meets minimum quality standards
    */
   isValidCitation(citation) {
-    // Minimum confidence threshold
-    if (citation.confidence < 0.4) return false;
+    // Higher confidence threshold since patterns are more specific
+    if (citation.confidence < 0.6) return false;
 
-    // Title length checks
-    if (citation.title.length < 3 || citation.title.length > 200) return false;
+    // Title length should be reasonable for actual citations
+    if (citation.title.length < 8 || citation.title.length > 120) return false;
 
-    // Filter out common false positives
-    const blacklist = [
+    const titleLower = citation.title.toLowerCase().trim();
+    
+    // Must contain at least one letter and not be all spaces
+    if (!/[a-zA-Z]/.test(citation.title) || titleLower.length === 0) return false;
+
+    // Block obvious false positives
+    const invalidTitles = [
       'this', 'that', 'these', 'those', 'here', 'there',
       'now', 'then', 'today', 'yesterday', 'tomorrow',
-      'good', 'bad', 'great', 'amazing', 'terrible'
+      'something', 'anything', 'everything', 'nothing',
+      'bell tower', 'according to', 'the study shows',
+      'in this video', 'this place', 'that person',
+      'we found', 'they discovered', 'it shows'
     ];
 
-    const titleLower = citation.title.toLowerCase();
-    if (blacklist.some(word => titleLower === word)) return false;
+    if (invalidTitles.some(invalid => titleLower === invalid || titleLower.includes(invalid))) {
+      return false;
+    }
 
-    // Must contain at least one letter
-    if (!/[a-zA-Z]/.test(citation.title)) return false;
+    // Books should look like book titles
+    if (citation.type === 'books') {
+      // Should not be just a single common word
+      const commonSingleWords = ['science', 'physics', 'history', 'mathematics', 'biology'];
+      if (commonSingleWords.includes(titleLower)) return false;
+      
+      // Should have reasonable length for a book title
+      if (citation.title.length < 10) return false;
+    }
+
+    // Papers should look like academic content
+    if (citation.type === 'papers') {
+      // Should contain some academic-sounding content
+      const hasAcademicWords = /(?:study|research|analysis|investigation|findings|results|journal|university|institute)/i.test(citation.title);
+      if (!hasAcademicWords && citation.title.length < 15) return false;
+    }
+
+    // Videos should look like video titles
+    if (citation.type === 'videos') {
+      // Should not be just descriptive phrases
+      const genericPhrases = ['this video', 'that documentary', 'the film'];
+      if (genericPhrases.some(phrase => titleLower.includes(phrase))) return false;
+    }
 
     return true;
   }
