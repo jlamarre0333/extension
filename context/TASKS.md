@@ -1,12 +1,15 @@
 # Citation Cross-Reference Extension - Task Board
 
 ## Doing
+- [ ] Debug and fix timestamp extraction from YouTube transcript panel to resolve "Jump to 0:00" issue
+- [ ] Test timestamp matching accuracy with various YouTube videos with different transcript sources
 - [x] Make AI analysis more robust and consistent across all YouTube videos
 - [x] Add retry logic and enhanced error handling for LLM API calls
 - [x] Implement comprehensive fallback analysis system with high-quality citations
 - [x] Enhance status indicators and user feedback during AI analysis
 - [x] Refine LLM prompt and validation to eliminate generic citations like "algebra" and "mathematics"
 - [x] Improve citation prioritization to rank content-rich citations above generic geographic locations
+- [x] Implement accurate timestamp matching for citations using transcript segment analysis
 
 ## To Do
 

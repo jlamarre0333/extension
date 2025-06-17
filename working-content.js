@@ -28,15 +28,17 @@ class LLMCitationDetector {
     console.log('🤖 Starting LLM-enhanced analysis...');
     
     // Handle different input formats and extract comprehensive metadata
-    let fullText, videoTitle, videoDescription, channelName;
+    let fullText, videoTitle, videoDescription, channelName, transcriptSegments;
     
     if (typeof videoData === 'string') {
       fullText = videoData;
       videoTitle = 'Unknown Video';
       videoDescription = '';
       channelName = 'Unknown Channel';
+      transcriptSegments = [];
     } else if (videoData && videoData.text) {
       fullText = videoData.text;
+      transcriptSegments = videoData.segments || []; // Store segments for timestamp matching
       
       // Extract video metadata with better selectors
       videoTitle = document.querySelector('h1[class*="title"] yt-formatted-string, #title h1, .title.style-scope.ytd-video-primary-info-renderer')?.textContent?.trim() 
@@ -87,7 +89,7 @@ class LLMCitationDetector {
         });
         
         if (analysis && (analysis.citationWorthy?.length > 0 || analysis.people?.length > 0 || analysis.concepts?.length > 0)) {
-          citations = await this.generateTargetedCitations(analysis, fullText);
+          citations = await this.generateTargetedCitations(analysis, fullText, transcriptSegments);
           if (citations.length > 0) {
             console.log(`✅ LLM analysis succeeded on attempt ${attempt}: ${citations.length} citations found`);
             llmSucceeded = true;
@@ -111,7 +113,7 @@ class LLMCitationDetector {
     // If LLM failed completely, use enhanced mock analysis with full video metadata
     if (!llmSucceeded) {
       console.log('🔄 LLM analysis failed after 3 attempts, using metadata-enhanced mock analysis...');
-      citations = this.getMetadataEnhancedAnalysis(fullText, videoTitle, channelName, videoDescription);
+      citations = this.getMetadataEnhancedAnalysis(fullText, videoTitle, channelName, videoDescription, transcriptSegments);
     }
     
     // Ensure all citations are marked as LLM-enhanced
@@ -369,9 +371,10 @@ Please analyze the transcript and respond with accurate JSON:
     return mockAnalysis;
   }
 
-  async generateTargetedCitations(analysis, fullText) {
+  async generateTargetedCitations(analysis, fullText, transcriptSegments = []) {
     const citations = [];
-    const timestamp = 0; // Default timestamp
+    
+    console.log(`🕐 Enhancing citations with accurate timestamps from ${transcriptSegments.length} segments...`);
     
     // Determine base confidence from LLM confidence level
     const baseConfidence = analysis.confidenceLevel === 'high' ? 0.95 : 
@@ -380,12 +383,13 @@ Please analyze the transcript and respond with accurate JSON:
     // Process citation-worthy items first (highest priority)
     if (analysis.citationWorthy && analysis.citationWorthy.length > 0) {
       for (const item of analysis.citationWorthy) {
+        const accurateTimestamp = this.findAccurateTimestamp(item, transcriptSegments);
         citations.push({
           title: item,
           type: this.inferCitationType(item, analysis),
           confidence: baseConfidence,
           source: 'llm_priority',
-          timestamp: timestamp,
+          timestamp: accurateTimestamp,
           llmContext: `${analysis.summary} | Academic field: ${analysis.academicField || 'general'}`,
           videoType: analysis.videoType || 'educational',
           priority: 'high',
@@ -398,12 +402,13 @@ Please analyze the transcript and respond with accurate JSON:
     // Process academic concepts with high priority
     if (analysis.concepts && analysis.concepts.length > 0) {
       for (const concept of analysis.concepts) {
+        const accurateTimestamp = this.findAccurateTimestamp(concept, transcriptSegments);
         citations.push({
           title: concept,
           type: 'topic',
           confidence: baseConfidence - 0.02,
           source: 'llm_concept',
-          timestamp: timestamp,
+          timestamp: accurateTimestamp,
           llmContext: `Academic concept from ${analysis.academicField || 'educational'} content: ${analysis.summary}`,
           videoType: analysis.videoType || 'educational',
           priority: 'high',
@@ -432,12 +437,13 @@ Please analyze the transcript and respond with accurate JSON:
           const validationScore = this.validateCitationAccuracy(item, fullText, analysis);
           
           if (validationScore >= 0.75) { // Only include citations with high validation scores
+            const accurateTimestamp = this.findAccurateTimestamp(item, transcriptSegments);
             citations.push({
               title: item,
               type: type,
               confidence: Math.min(0.95, 0.7 + (validationScore * 0.25)), // Dynamic confidence based on validation
               source: 'llm_analysis',
-              timestamp: timestamp,
+              timestamp: accurateTimestamp,
               llmContext: analysis.summary,
               videoType: analysis.videoType,
               priority: validationScore > 0.8 ? 'high' : 'normal',
@@ -484,6 +490,109 @@ Please analyze the transcript and respond with accurate JSON:
     }
     
     return uniqueCitations;
+  }
+
+  findAccurateTimestamp(citationTitle, transcriptSegments) {
+    if (!transcriptSegments || transcriptSegments.length === 0) {
+      console.log(`⏰ No transcript segments available for "${citationTitle}", using default timestamp 0`);
+      return 0;
+    }
+
+    console.log(`🔍 Finding timestamp for "${citationTitle}" in ${transcriptSegments.length} segments...`);
+    console.log(`📄 Transcript segments sample:`, transcriptSegments.slice(0, 3).map(s => ({ text: s.text?.substring(0, 50), start: s.start })));
+    
+    // Normalize citation title for better matching
+    const citationLower = citationTitle.toLowerCase().trim();
+    const citationWords = citationLower.split(/\s+/).filter(word => word.length > 2);
+    
+    let bestMatch = null;
+    let bestScore = 0;
+    let bestSegment = null;
+    
+    // Strategy 1: Direct phrase matching (highest priority)
+    for (const segment of transcriptSegments) {
+      const segmentText = segment.text.toLowerCase();
+      
+      // Check for exact phrase match
+      if (segmentText.includes(citationLower)) {
+        console.log(`✅ Exact match found for "${citationTitle}" at ${segment.start}s: "${segment.text}"`);
+        return Math.floor(segment.start);
+      }
+    }
+    
+    // Strategy 2: Word-based scoring with context awareness
+    for (const segment of transcriptSegments) {
+      const segmentText = segment.text.toLowerCase();
+      let score = 0;
+      let matches = 0;
+      
+      // Count word matches
+      for (const word of citationWords) {
+        if (segmentText.includes(word)) {
+          matches++;
+          // Give higher score for longer, more specific words
+          score += word.length * 0.1;
+        }
+      }
+      
+      // Calculate match ratio
+      const matchRatio = citationWords.length > 0 ? matches / citationWords.length : 0;
+      score += matchRatio * 10; // Base score for match ratio
+      
+      // Bonus for high match ratios
+      if (matchRatio >= 0.6) score += 5;
+      if (matchRatio >= 0.8) score += 10;
+      
+      // Bonus for mentions of key academic terms
+      const academicTerms = ['experiment', 'study', 'research', 'investigation', 'theory', 'principle', 'incident', 'case', 'CIA', 'government', 'organization'];
+      for (const term of academicTerms) {
+        if (citationLower.includes(term.toLowerCase()) && segmentText.includes(term.toLowerCase())) {
+          score += 3;
+        }
+      }
+      
+      // Prefer segments with meaningful content (not just filler words)
+      const meaningfulWords = segmentText.match(/\b(experiment|study|research|investigation|theory|principle|incident|case|project|organization|government|agency|university|laboratory|CIA|LSD|biological|warfare|control|manipulation)\b/g);
+      if (meaningfulWords) {
+        score += meaningfulWords.length * 0.5;
+      }
+      
+      if (score > bestScore && matchRatio >= 0.3) {
+        bestScore = score;
+        bestMatch = segment;
+        bestSegment = segment;
+      }
+    }
+    
+    // Strategy 3: Fallback to key word search for important citations
+    if (!bestMatch) {
+      // Extract the most important word from citation (longest word or known important terms)
+      const importantWords = citationWords.filter(word => 
+        word.length > 4 || 
+        ['CIA', 'LSD', 'experiment', 'study', 'incident', 'project', 'research'].includes(word.toLowerCase())
+      );
+      
+      for (const segment of transcriptSegments) {
+        const segmentText = segment.text.toLowerCase();
+        
+        for (const word of importantWords) {
+          if (segmentText.includes(word)) {
+            console.log(`🔍 Found key word "${word}" from "${citationTitle}" at ${segment.start}s: "${segment.text}"`);
+            bestMatch = segment;
+            break;
+          }
+        }
+        if (bestMatch) break;
+      }
+    }
+    
+    if (bestMatch) {
+      console.log(`✅ Best match for "${citationTitle}" at ${bestMatch.start}s (score: ${bestScore.toFixed(2)}): "${bestMatch.text}"`);
+      return Math.floor(bestMatch.start);
+    } else {
+      console.log(`⚠️ No suitable timestamp found for "${citationTitle}", using default timestamp 0`);
+      return 0;
+    }
   }
 
   calculateCitationQualityScore(citation) {
@@ -817,7 +926,7 @@ Please analyze the transcript and respond with accurate JSON:
     return this.getEnhancedMockAnalysis(fullText, videoTitle, 'Unknown Channel');
   }
 
-  getMetadataEnhancedAnalysis(fullText, videoTitle, channelName, videoDescription = '') {
+  getMetadataEnhancedAnalysis(fullText, videoTitle, channelName, videoDescription = '', transcriptSegments = []) {
     console.log('🧠 Using METADATA-ENHANCED analysis - AI-quality citations from video metadata...');
     const citations = [];
     const text = (fullText + ' ' + videoTitle + ' ' + videoDescription + ' ' + channelName).toLowerCase();
@@ -4344,8 +4453,8 @@ async function getVideoText() {
     const transcriptFromPanel = await extractFromTranscriptPanel();
     if (transcriptFromPanel) {
       console.log('✅ Got transcript from transcript panel');
-      // Convert to new format for consistency
-      return { text: transcriptFromPanel, segments: [] };
+      // transcriptFromPanel is already in the correct format {text, segments}
+      return transcriptFromPanel;
     }
 
     // Method 3: Try to get from video tracks
@@ -4465,18 +4574,79 @@ async function extractFromTranscriptPanel() {
         button.click();
         
         // Wait for transcript panel to load
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 1500));
         
-        // Look for transcript segments
-        const segments = document.querySelectorAll('[data-testid="transcript-segment"], .ytd-transcript-segment-renderer');
-        if (segments.length > 0) {
-          const text = Array.from(segments)
-            .map(segment => segment.textContent?.trim())
-            .filter(text => text && text.length > 0)
-            .join(' ');
+        // Look for transcript segments with timestamps
+        const segmentElements = document.querySelectorAll('[data-testid="transcript-segment"], .ytd-transcript-segment-renderer, .ytd-transcript-segment-list-renderer [role="button"]');
+        console.log(`🔍 Found ${segmentElements.length} transcript segment elements`);
+        
+        if (segmentElements.length > 0) {
+          const segments = [];
+          let fullText = '';
           
-          if (text.length > 100) {
-            return text;
+          Array.from(segmentElements).forEach((segmentEl, index) => {
+            try {
+              // Extract timestamp - try multiple selectors
+              let timestampText = '';
+              const timestampEl = segmentEl.querySelector('.ytd-transcript-segment-renderer .segment-timestamp, [role="button"] > div:first-child, .timestamp');
+              
+              if (timestampEl) {
+                timestampText = timestampEl.textContent?.trim() || '';
+              } else {
+                // Fallback: look for patterns like "0:14" in the element text
+                const fullText = segmentEl.textContent || '';
+                const timeMatch = fullText.match(/(\d{1,2}:\d{2})/);
+                if (timeMatch) {
+                  timestampText = timeMatch[1];
+                }
+              }
+              
+              // Extract text content (excluding timestamp)
+              let segmentText = segmentEl.textContent?.trim() || '';
+              if (timestampText) {
+                segmentText = segmentText.replace(timestampText, '').trim();
+              }
+              
+              if (segmentText && segmentText.length > 0) {
+                // Convert timestamp to seconds
+                let startTime = 0;
+                if (timestampText) {
+                  const timeParts = timestampText.split(':');
+                  if (timeParts.length === 2) {
+                    startTime = parseInt(timeParts[0]) * 60 + parseInt(timeParts[1]);
+                  } else if (timeParts.length === 3) {
+                    startTime = parseInt(timeParts[0]) * 3600 + parseInt(timeParts[1]) * 60 + parseInt(timeParts[2]);
+                  }
+                }
+                
+                console.log(`📝 Transcript segment ${index}: "${segmentText}" at ${startTime}s (${timestampText})`);
+                
+                segments.push({
+                  text: segmentText,
+                  start: startTime,
+                  end: startTime + 4 // Approximate 4-second duration
+                });
+                
+                fullText += segmentText + ' ';
+              }
+            } catch (error) {
+              console.warn('Error processing transcript segment:', error);
+            }
+          });
+          
+          if (fullText.length > 100 && segments.length > 0) {
+            console.log(`✅ Extracted ${segments.length} timestamped segments from transcript panel`);
+            return {
+              text: fullText.trim(),
+              segments: segments
+            };
+          } else if (fullText.length > 100) {
+            // Fallback: if we have text but no timestamped segments
+            console.log('⚠️ Got transcript text but no timestamps from panel');
+            return {
+              text: fullText.trim(),
+              segments: []
+            };
           }
         }
       }
