@@ -19,26 +19,53 @@ class EnhancedCitationDetector {
     this.userHistory = this.loadUserHistory();
     this.learningData = this.loadLearningData();
     
-    // Enhanced detection patterns for all types
+    // Improved citation detection patterns - more accurate matching
     this.patterns = {
       books: [
-        /(?:book|novel|memoir|biography)(?:\s+called|\s+titled|\s+named)?\s*[""']([^""']{5,80})[""']/gi,
-        /[""']([^""']{5,80})[""']\s+by\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/gi,
-        /(?:recommend|read|check out)\s+[""']([A-Z][^""']{5,80})[""']/gi,
-        /(?:in|from)\s+(?:his|her|their)?\s*(?:book|novel)\s+[""']([^""']{5,80})[""']/gi,
-        /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)'s\s+(?:book|novel|work)\s+[""']([^""']{5,80})[""']/gi,
-        /(?:the|this)\s+book\s+[""']([^""']{5,80})[""']/gi
+        // Books with explicit titles in quotes
+        /(?:book|novel|memoir|biography|autobiography)\s+(?:called|titled|named|entitled)\s*[""']([^""']{4,80})[""']/gi,
+        /(?:wrote|published|authored)\s+(?:the\s+)?(?:book|novel)\s+[""']([^""']{4,80})[""']/gi,
+        // Author attribution patterns
+        /[""']([^""']{4,80})[""']\s+by\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})/gi,
+        /([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})'s\s+(?:book|novel|work)\s+[""']([^""']{4,80})[""']/gi,
+        // Recommendations with explicit titles
+        /(?:recommend|suggests?|mentions?)\s+(?:reading\s+)?(?:the\s+)?(?:book|novel)\s+[""']([^""']{4,80})[""']/gi,
+        // References to specific works
+        /(?:in|from)\s+(?:his|her|their)\s+(?:famous\s+)?(?:book|work|novel)\s+[""']([^""']{4,80})[""']/gi
       ],
       papers: [
-        /(?:study|research|paper)\s+(?:published\s+)?(?:in\s+)?(?:the\s+)?(Nature|Science|Cell|PNAS|NEJM|Physical Review|Journal of [A-Z][^.!?]{5,60})/gi,
-        /(?:researchers?|scientists?|study|studies)\s+(?:found|discovered|showed?|indicates?)\s+(?:that\s+)?([A-Z][^.!?]{15,100})/gi,
-        /(Einstein'?s?\s+(?:1905\s+)?(?:paper|papers|work)\s+on\s+(?:relativity|photoelectric\s+effect|brownian\s+motion))/gi,
-        /(?:published\s+in\s+|appeared\s+in\s+|from\s+)?(Nature|Science|Cell|PNAS|NEJM|Physical\s+Review\s+Letters?)/gi
+        // Academic papers with journal names
+        /(?:study|research|paper|article)\s+(?:published\s+)?(?:in\s+)?(?:the\s+)?(Nature|Science|Cell|PNAS|NEJM|Physical Review|Astrophysical Journal|New England Journal|Proceedings of|Journal of [A-Z][a-zA-Z\s]{5,40})/gi,
+        // Research findings with institutions
+        /(?:researchers?|scientists?)\s+(?:at\s+|from\s+)?([A-Z][a-zA-Z\s]{5,50}(?:University|Institute|Laboratory|College))\s+(?:found|discovered|showed?|published)/gi,
+        // Famous scientific papers
+        /(Einstein'?s?\s+(?:1905\s+)?(?:paper|work)\s+on\s+(?:special\s+relativity|photoelectric\s+effect|brownian\s+motion))/gi,
+        /(Darwin'?s?\s+(?:paper|work)\s+on\s+(?:evolution|natural\s+selection|origin\s+of\s+species))/gi,
+        // Study results with specific findings
+        /(?:according\s+to\s+)?(?:a\s+)?(?:study|research)\s+(?:published\s+in\s+|from\s+)(Nature|Science|Cell|PNAS|Physical\s+Review)/gi
       ],
       topics: [
-        /(?:theory of|concept of|principle of)\s+([A-Z][a-z\s]{5,50})/gi,
-        /(Einstein'?s?\s+(?:theory of\s+)?relativity|quantum mechanics|evolution|natural selection|general relativity|special relativity)/gi,
-        /(quantum entanglement|double[–-]slit experiment|uncertainty principle|photoelectric effect|black hole|big bang theory)/gi
+        // Scientific theories and concepts
+        /(?:theory\s+of|concept\s+of|principle\s+of|law\s+of)\s+([A-Z][a-zA-Z\s]{4,50})/gi,
+        // Famous scientific concepts
+        /(Einstein'?s?\s+(?:theory\s+of\s+)?(?:general\s+|special\s+)?relativity)/gi,
+        /(quantum\s+(?:mechanics|entanglement|tunneling|superposition))/gi,
+        /(natural\s+selection|evolution|big\s+bang\s+theory|string\s+theory)/gi,
+        // Physics phenomena
+        /(photoelectric\s+effect|uncertainty\s+principle|double[–-]slit\s+experiment)/gi,
+        /(black\s+holes?|neutron\s+stars?|dark\s+matter|dark\s+energy)/gi,
+        // Mathematical concepts
+        /(calculus|differential\s+equations|fourier\s+transform|chaos\s+theory)/gi
+      ],
+      // Add new categories for better coverage
+      documentaries: [
+        /(?:documentary|film)\s+(?:called|titled|named)\s+[""']([^""']{4,60})[""']/gi,
+        /(?:watch|see|check\s+out)\s+(?:the\s+)?(?:documentary|film)\s+[""']([^""']{4,60})[""']/gi
+      ],
+      videos: [
+        /(?:TED\s+talk|TEDx)\s+(?:called|titled|about)\s+[""']([^""']{4,60})[""']/gi,
+        /(?:YouTube\s+channel|channel)\s+[""']([^""']{3,40})[""']/gi,
+        /(Veritasium|Kurzgesagt|MinutePhysics|SciShow|Crash\s+Course|Khan\s+Academy|TED-Ed|3Blue1Brown|Numberphile)\s+(?:video|explains?)/gi
       ]
     };
   }
@@ -100,52 +127,131 @@ class EnhancedCitationDetector {
 
 
   calculateAdvancedConfidence(fullMatch, type, title, author) {
-    let confidence = 0.5;
+    let confidence = 0.3; // Lower base confidence
 
-    // Boost for explicit indicators
+    // Strong indicators for each type
     const indicators = {
-      books: ['book', 'novel', 'author', 'wrote', 'published'],
-      papers: ['study', 'research', 'journal', 'published', 'Nature', 'Science'],
-      topics: ['theory', 'concept', 'principle', 'Einstein', 'quantum']
+      books: ['book', 'novel', 'memoir', 'biography', 'wrote', 'authored', 'published'],
+      papers: ['study', 'research', 'paper', 'journal', 'published', 'Nature', 'Science', 'researchers'],
+      topics: ['theory', 'concept', 'principle', 'law', 'phenomenon', 'effect'],
+      documentaries: ['documentary', 'film', 'watch', 'see'],
+      videos: ['TED', 'YouTube', 'channel', 'video']
     };
 
     const typeIndicators = indicators[type] || [];
     const matchLower = fullMatch.toLowerCase();
     
+    // Boost for type-specific indicators
+    let indicatorCount = 0;
     for (const indicator of typeIndicators) {
       if (matchLower.includes(indicator)) {
-        confidence += 0.1;
+        indicatorCount++;
+        confidence += 0.15;
       }
     }
 
-    // Enhanced scoring
-    if (/[""']/.test(fullMatch)) confidence += 0.15;
-    if (/^[A-Z]/.test(title)) confidence += 0.1;
-    if (title.length > 10) confidence += 0.1;
-    if (author) confidence += 0.2;
+    // Strong boost for quotation marks (shows explicit mention)
+    if (/[""']/.test(fullMatch)) confidence += 0.25;
     
-    // Famous works boost
-    if (this.isFamousWork(title)) confidence += 0.3;
+    // Boost for proper capitalization
+    if (/^[A-Z]/.test(title)) confidence += 0.1;
+    
+    // Length-based scoring
+    if (title.length > 15) confidence += 0.15;
+    else if (title.length < 5) confidence -= 0.1;
+    
+    // Author attribution adds credibility
+    if (author) confidence += 0.25;
+    
+    // Boost for famous works
+    if (this.isFamousWork(title)) confidence += 0.2;
+    
+    // Boost for academic/scientific terms
+    if (matchLower.includes('university') || matchLower.includes('institute') || 
+        matchLower.includes('laboratory') || matchLower.includes('college')) {
+      confidence += 0.1;
+    }
+    
+    // Penalty for very generic terms
+    const genericTerms = ['science', 'physics', 'mathematics', 'research', 'study'];
+    if (genericTerms.includes(title.toLowerCase())) {
+      confidence -= 0.2;
+    }
     
     return Math.max(0, Math.min(1, confidence));
   }
 
   isFamousWork(title) {
     const famousWorks = [
-      'relativity', 'origin of species', 'principia', 'elegant universe',
-      'brief history of time', 'sapiens', 'thinking fast and slow'
+      // Physics & Science
+      'relativity', 'elegant universe', 'brief history of time', 'fabric of the cosmos',
+      'quantum theory cannot hurt you', 'quantum universe', 'parallel worlds',
+      'hidden dimensions', 'theory of everything', 'god particle', 'higgs boson',
+      
+      // Biology & Evolution  
+      'origin of species', 'selfish gene', 'blind watchmaker', 'greatest show on earth',
+      'your inner fish', 'sapiens', 'homo deus', 'gene machine',
+      
+      // Mathematics
+      'principia mathematica', 'godel escher bach', 'fermats last theorem',
+      'man who loved only numbers', 'music of the primes',
+      
+      // Popular Science
+      'cosmos', 'pale blue dot', 'demon haunted world', 'contact',
+      'thinking fast and slow', 'predictably irrational', 'freakonomics',
+      
+      // Technology & Future
+      'singularity is near', 'whole earth catalog', 'structure of scientific revolutions',
+      
+      // Classic Works
+      'principia', 'discourse on method', 'novum organum', 'system of the world'
     ];
+    
     const titleLower = title.toLowerCase();
-    return famousWorks.some(work => titleLower.includes(work));
+    return famousWorks.some(work => {
+      // Check for exact matches or if the famous work is contained in the title
+      return titleLower.includes(work) || work.includes(titleLower);
+    });
   }
 
   isValidTitle(title) {
-    const blacklist = ['this', 'that', 'here', 'there', 'now', 'then', 'today'];
-    const titleLower = title.toLowerCase();
+    const blacklist = [
+      'this', 'that', 'here', 'there', 'now', 'then', 'today', 'yesterday',
+      'something', 'anything', 'everything', 'nothing', 'someone', 'anyone'
+    ];
     
+    const titleLower = title.toLowerCase().trim();
+    
+    // Direct blacklist check
     if (blacklist.includes(titleLower)) return false;
-    if (title.length < 3 || title.length > 120) return false;
+    
+    // Length validation
+    if (title.length < 4 || title.length > 120) return false;
+    
+    // Must contain letters
     if (!/[a-zA-Z]/.test(title)) return false;
+    
+    // Avoid very generic single words
+    if (title.split(' ').length === 1) {
+      const genericSingleWords = [
+        'science', 'physics', 'chemistry', 'biology', 'mathematics', 'math',
+        'research', 'study', 'theory', 'concept', 'principle', 'law',
+        'university', 'institute', 'college', 'school', 'department'
+      ];
+      if (genericSingleWords.includes(titleLower)) return false;
+    }
+    
+    // Avoid titles that are just numbers or very short generic phrases
+    if (/^\d+$/.test(title)) return false;
+    if (titleLower.match(/^(the|a|an)\s+\w{1,4}$/)) return false;
+    
+    // Must have some meaningful content (not just articles and prepositions)
+    const meaningfulWords = title.split(' ').filter(word => {
+      const wordLower = word.toLowerCase();
+      return !['the', 'a', 'an', 'of', 'in', 'on', 'at', 'to', 'for', 'with', 'by'].includes(wordLower);
+    });
+    
+    if (meaningfulWords.length === 0) return false;
     
     return true;
   }
