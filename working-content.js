@@ -27,7 +27,7 @@ class LLMCitationDetector {
   async analyzeVideoContent(videoData) {
     console.log('🤖 Starting LLM-enhanced analysis...');
     
-    // Handle different input formats
+    // Handle different input formats and extract comprehensive metadata
     let fullText, videoTitle, videoDescription, channelName;
     
     if (typeof videoData === 'string') {
@@ -35,15 +35,41 @@ class LLMCitationDetector {
       videoTitle = 'Unknown Video';
       videoDescription = '';
       channelName = 'Unknown Channel';
-    } else if (videoData.text) {
+    } else if (videoData && videoData.text) {
       fullText = videoData.text;
-      videoTitle = document.querySelector('h1[class*="title"] yt-formatted-string')?.textContent?.trim() || 'Unknown Video';
-      channelName = document.querySelector('#channel-name a, #channel-name yt-formatted-string')?.textContent?.trim() || 'Unknown Channel';
-      videoDescription = document.querySelector('#description-text, #snippet-text')?.textContent?.trim() || '';
+      
+      // Extract video metadata with better selectors
+      videoTitle = document.querySelector('h1[class*="title"] yt-formatted-string, #title h1, .title.style-scope.ytd-video-primary-info-renderer')?.textContent?.trim() 
+                  || document.querySelector('h1')?.textContent?.trim() 
+                  || 'Unknown Video';
+      
+      channelName = document.querySelector('#channel-name a, #channel-name yt-formatted-string, .owner-sub-count, .ytd-channel-name a')?.textContent?.trim() 
+                   || document.querySelector('[class*="channel"]')?.textContent?.trim() 
+                   || 'Unknown Channel';
+      
+      videoDescription = document.querySelector('#description-text, #snippet-text, .content.style-scope.ytd-video-secondary-info-renderer')?.textContent?.trim() 
+                        || document.querySelector('[class*="description"]')?.textContent?.trim() 
+                        || '';
+    } else {
+      console.error('❌ Invalid video data provided:', videoData);
+      fullText = '';
+      videoTitle = 'Error - No Data';
+      videoDescription = '';
+      channelName = 'Unknown Channel';
     }
     
-    console.log(`📄 Analyzing video: "${videoTitle}" by ${channelName}`);
-    console.log(`📝 Transcript: ${fullText.length} characters`);
+    // Enhanced logging for debugging
+    console.log(`📄 Video Analysis Details:`);
+    console.log(`  📺 Title: "${videoTitle}"`);
+    console.log(`  📺 Channel: "${channelName}"`);
+    console.log(`  📺 Description: "${videoDescription.substring(0, 200)}${videoDescription.length > 200 ? '...' : ''}"`);
+    console.log(`  📝 Transcript: ${fullText.length} characters`);
+    console.log(`  📝 Transcript sample: "${fullText.substring(0, 300)}${fullText.length > 300 ? '...' : ''}"`);
+    
+    // Verify we have actual content, not fallback text
+    if (fullText.includes('Sapiens') && fullText.includes('Atomic Habits')) {
+      console.warn('⚠️ Using fallback sample text - real transcript extraction failed!');
+    }
     
     // Always try LLM analysis first with multiple retry attempts
     let citations = [];
@@ -110,44 +136,89 @@ class LLMCitationDetector {
         videoMetadata.transcript.substring(0, maxTranscriptLength) + '...' : 
         videoMetadata.transcript;
       
-      const prompt = `You are an expert content analyzer specializing in educational video analysis. Your task is to extract citation-worthy information from this YouTube video.
+      const prompt = `You are an expert academic content analyzer specializing in precise, specific citation extraction. Your task is to identify ONLY highly specific, researchable items that students would want to look up.
 
 VIDEO METADATA:
 Title: "${videoMetadata.title}"
 Channel: "${videoMetadata.channelName}"
 Description: "${videoMetadata.description}"
 
-TRANSCRIPT CONTENT:
+TRANSCRIPT CONTENT (${transcript.length} characters):
 ${transcript}
 
-ANALYSIS GUIDELINES:
-- Focus on factual, educational content that viewers would want to research further
-- Prioritize academic concepts, historical figures, scientific theories, and notable places
-- Extract proper nouns and specific terminology that indicate expertise or authority
-- Consider the video title and description as strong indicators of topic focus
-- Pay attention to the channel name for content specialization (e.g., science channels, history channels)
+CRITICAL INSTRUCTIONS - READ CAREFULLY:
+1. ONLY extract items explicitly mentioned in the transcript content
+2. Be EXTREMELY SPECIFIC - avoid broad subject names at all costs
+3. Focus on proper nouns, specific theories, named concepts, and concrete entities
+4. When someone mentions a mathematical concept, extract the SPECIFIC concept name, not "mathematics" or "algebra"
+5. When discussing historical events, extract the SPECIFIC event name, not "history"
+6. Prefer named theories, specific people, exact places, and particular technologies
 
-Please provide a detailed JSON response with:
+EXAMPLES OF WHAT TO EXTRACT (✅ GOOD):
+- "Complex numbers" (specific mathematical concept)
+- "Euler's identity" (specific mathematical formula)
+- "Albert Einstein" (specific person)
+- "Theory of relativity" (specific scientific theory)
+- "Fibonacci sequence" (specific mathematical sequence)
+- "CERN" (specific organization)
+- "Quadratic formula" (specific mathematical formula)
+- "Renaissance Italy" (specific time and place)
+- "Newton's laws of motion" (specific scientific laws)
+- "Pythagorean theorem" (specific mathematical theorem)
+
+EXAMPLES OF WHAT NOT TO EXTRACT (❌ BAD):
+- "Mathematics" (too broad)
+- "Algebra" (too general)
+- "Geometry" (too general)  
+- "Physics" (too broad)
+- "Science" (too vague)
+- "History" (too general)
+- "Technology" (too vague)
+- "Research" (too generic)
+- "Mathematical concepts" (too broad)
+- "Scientific principles" (too vague)
+
+SPECIFIC FILTERING RULES:
+- If transcript mentions "imaginary numbers", extract "Imaginary numbers" NOT "algebra" or "mathematics"
+- If transcript discusses "quadratic equations", extract "Quadratic equations" NOT "algebra"
+- If transcript mentions "calculus", extract "Calculus" (it's specific enough) but NOT "mathematics"
+- If transcript discusses "World War II", extract "World War II" NOT "history"
+- If transcript mentions "quantum mechanics", extract "Quantum mechanics" NOT "physics"
+
+QUALITY REQUIREMENTS:
+- Each extracted item must be something a student could specifically research
+- Prefer multi-word specific terms over single broad words
+- Only include items that appear in the actual transcript text
+- Maximum 5-8 high-quality citations - better fewer accurate ones than many vague ones
+- Each citation should be searchable and lead to specific information
+
+Please analyze the transcript and respond with accurate JSON:
 {
-  "summary": "2-3 sentence summary focusing on the educational value and main thesis",
+  "summary": "Specific topics covered in the video based on transcript",
   "videoType": "travel|educational|technology|business|entertainment|news|science|history|other",
-  "academicField": "physics|mathematics|history|biology|chemistry|computer_science|philosophy|economics|other",
-  "mainTopics": ["specific topics discussed in detail with proper terminology"],
-  "places": ["specific locations, countries, cities, landmarks mentioned with context"],
-  "people": ["specific people mentioned - include full names when possible"],
-  "companies": ["specific companies, brands, organizations mentioned"],
-  "technologies": ["specific technologies, tools, platforms, scientific instruments"],
-  "historicalEvents": ["specific historical events, periods, wars, movements with dates if mentioned"],
-  "books": ["specific books, publications, studies, papers mentioned"],
-  "concepts": ["specific academic concepts, theories, scientific principles explained"],
-  "products": ["specific products, services, tools featured or discussed"],
-  "timeContext": "ancient|medieval|renaissance|industrial|modern|contemporary|future",
-  "citationWorthy": ["the most important 5-8 items that students/researchers would want to explore further"],
-  "confidenceLevel": "high|medium|low based on how clearly these topics were discussed"
+  "academicField": "physics|mathematics|history|biology|chemistry|computer_science|philosophy|economics|other|general",
+  "mainTopics": ["specific named topics from transcript"],
+  "places": ["specific locations mentioned by name"],
+  "people": ["specific people named in transcript"],
+  "companies": ["specific companies/organizations mentioned"],
+  "technologies": ["specific technologies/tools named"],
+  "historicalEvents": ["specific events/periods named"],
+  "books": ["specific books/publications referenced"],
+  "concepts": ["specific academic concepts mentioned by name"],
+  "products": ["specific products discussed"],
+  "timeContext": "ancient|medieval|renaissance|industrial|modern|contemporary|future|unclear",
+  "citationWorthy": ["3-5 most specific, researchable items from transcript"],
+  "confidenceLevel": "high|medium|low",
+  "transcriptQuality": "clear|unclear|incomplete"
 }`;
 
       console.log('🚀 Sending analysis request to LLM...');
-      return await this.callOllama(prompt);
+      console.log(`📤 Prompt length: ${prompt.length} characters`);
+      console.log(`📤 Transcript being sent: "${transcript.substring(0, 500)}..."`);
+      
+      const result = await this.callOllama(prompt);
+      console.log('📥 LLM Response received:', result);
+      return result;
       
     } catch (error) {
       console.error('❌ LLM API error:', error);
@@ -206,15 +277,23 @@ Please provide a detailed JSON response with:
     // Method 2: Try CORS proxy fallback
     try {
       console.log('🌉 Attempting CORS proxy fallback...');
+      
+      // Extract transcript from prompt more reliably
+      const transcriptMatch = prompt.match(/TRANSCRIPT CONTENT \(\d+ characters\):\n([\s\S]*?)\n\nCRITICAL INSTRUCTIONS:/);
+      const extractedTranscript = transcriptMatch ? transcriptMatch[1] : prompt.split('TRANSCRIPT CONTENT')[1]?.split('CRITICAL INSTRUCTIONS')[0]?.trim() || '';
+      
+      console.log(`📤 Extracted transcript for proxy: ${extractedTranscript.length} characters`);
+      console.log(`📤 Transcript sample: "${extractedTranscript.substring(0, 300)}..."`);
+      
       const proxyResponse = await fetch('http://localhost:3001/api/ollama-analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           videoMetadata: {
-            title: 'Extracted from prompt',
-            channelName: 'Extracted from prompt', 
-            description: 'Extracted from prompt',
-            transcript: prompt.split('TRANSCRIPT:\n')[1]?.split('\n\nPlease provide')[0] || ''
+            title: prompt.match(/Title: "(.*?)"/)?.[1] || 'Unknown Video',
+            channelName: prompt.match(/Channel: "(.*?)"/)?.[1] || 'Unknown Channel',
+            description: prompt.match(/Description: "(.*?)"/)?.[1] || '',
+            transcript: extractedTranscript
           }
         })
       });
@@ -334,7 +413,7 @@ Please provide a detailed JSON response with:
       }
     }
 
-    // Process other categories with contextual understanding
+    // Process other categories with accuracy validation
     const categoryMappings = {
       people: 'person',
       places: 'place', 
@@ -349,18 +428,26 @@ Please provide a detailed JSON response with:
     for (const [category, type] of Object.entries(categoryMappings)) {
       if (analysis[category]) {
         for (const item of analysis[category]) {
-          citations.push({
-            title: item,
-            type: type,
-            confidence: 0.85,
-            source: 'llm_analysis',
-            timestamp: timestamp,
-            llmContext: analysis.summary,
-            videoType: analysis.videoType,
-            priority: 'normal',
-            author: null,
-            verified: true
-          });
+          // Validate citation against transcript content
+          const validationScore = this.validateCitationAccuracy(item, fullText, analysis);
+          
+          if (validationScore >= 0.75) { // Only include citations with high validation scores
+            citations.push({
+              title: item,
+              type: type,
+              confidence: Math.min(0.95, 0.7 + (validationScore * 0.25)), // Dynamic confidence based on validation
+              source: 'llm_analysis',
+              timestamp: timestamp,
+              llmContext: analysis.summary,
+              videoType: analysis.videoType,
+              priority: validationScore > 0.8 ? 'high' : 'normal',
+              author: null,
+              verified: true,
+              validationScore: validationScore
+            });
+          } else {
+            console.log(`🚫 Filtered out low-accuracy citation: "${item}" (score: ${validationScore.toFixed(2)})`);
+          }
         }
       }
     }
@@ -375,8 +462,187 @@ Please provide a detailed JSON response with:
       return b.confidence - a.confidence;
     });
     
-    console.log(`🎯 Generated ${uniqueCitations.length} LLM-enhanced citations`);
+    console.log(`🎯 Generated ${uniqueCitations.length} LLM-enhanced citations (after validation filtering)`);
+    
+    // Log validation statistics
+    const validatedCitations = uniqueCitations.filter(c => c.validationScore !== undefined);
+    if (validatedCitations.length > 0) {
+      const avgValidation = validatedCitations.reduce((sum, c) => sum + c.validationScore, 0) / validatedCitations.length;
+      const highQuality = validatedCitations.filter(c => c.validationScore > 0.8).length;
+      console.log(`📊 Validation stats: ${Math.round(avgValidation * 100)}% avg accuracy, ${highQuality}/${validatedCitations.length} high-quality citations`);
+    }
+    
     return uniqueCitations;
+  }
+
+  validateCitationAccuracy(citation, fullText, analysis) {
+    const citationLower = citation.toLowerCase();
+    const textLower = fullText.toLowerCase();
+    const titleLower = analysis.title?.toLowerCase() || '';
+    
+    let score = 0;
+    
+    // Check direct mentions in transcript (highest score)
+    if (textLower.includes(citationLower)) {
+      score += 0.8;
+    }
+    
+    // Check partial matches with key words
+    const citationWords = citationLower.split(/\s+/).filter(word => word.length > 2);
+    let wordMatches = 0;
+    
+    for (const word of citationWords) {
+      if (textLower.includes(word)) {
+        wordMatches++;
+      }
+    }
+    
+    const wordMatchRatio = citationWords.length > 0 ? wordMatches / citationWords.length : 0;
+    score += wordMatchRatio * 0.4;
+    
+    // Check if mentioned in video title (moderate bonus)
+    if (titleLower.includes(citationLower)) {
+      score += 0.3;
+    }
+    
+    // Check for context relevance
+    const contextRelevance = this.checkContextualRelevance(citation, analysis);
+    score += contextRelevance * 0.2;
+    
+    // Heavy penalty for generic terms
+    if (this.isGenericTerm(citation)) {
+      score -= 0.4; // Increased penalty
+    }
+    
+    // Penalty for very short citations (likely not meaningful)
+    if (citation.length < 4) {
+      score -= 0.3;
+    }
+    
+    // Bonus for proper nouns (likely to be specific entities)
+    if (/^[A-Z]/.test(citation) && citation.includes(' ')) {
+      score += 0.15;
+    }
+    
+    // Bonus for multi-word specific terms
+    if (citation.includes(' ') && citation.length > 8) {
+      score += 0.1;
+    }
+    
+    // Bonus for specific academic terms with named components
+    const specificPatterns = [
+      /\b(theorem|formula|equation|law|principle)\b/i,
+      /\b(theory of|laws of|method of)\b/i,
+      /\b[A-Z][a-z]+'s\s/i, // Possessive forms like "Newton's", "Euler's"
+      /\b(complex|quadratic|linear|differential|integral)\s/i
+    ];
+    
+    if (specificPatterns.some(pattern => pattern.test(citation))) {
+      score += 0.2;
+    }
+    
+    return Math.max(0, Math.min(1, score));
+  }
+
+  checkContextualRelevance(citation, analysis) {
+    const citationLower = citation.toLowerCase();
+    
+    // Check if citation aligns with academic field
+    if (analysis.academicField && analysis.academicField !== 'general') {
+      const fieldKeywords = {
+        physics: ['theory', 'quantum', 'relativity', 'mechanics', 'energy', 'force'],
+        mathematics: ['theorem', 'equation', 'formula', 'proof', 'number', 'calculation'],
+        history: ['war', 'empire', 'revolution', 'century', 'ancient', 'period'],
+        biology: ['cell', 'organism', 'evolution', 'species', 'dna', 'gene'],
+        chemistry: ['element', 'compound', 'reaction', 'molecule', 'acid', 'bond'],
+        computer_science: ['algorithm', 'software', 'data', 'programming', 'system'],
+        philosophy: ['ethics', 'logic', 'consciousness', 'meaning', 'truth'],
+        economics: ['market', 'economy', 'trade', 'money', 'investment', 'business']
+      };
+      
+      const relevantKeywords = fieldKeywords[analysis.academicField] || [];
+      for (const keyword of relevantKeywords) {
+        if (citationLower.includes(keyword)) {
+          return 0.8;
+        }
+      }
+    }
+    
+    // Check if citation matches video type context
+    const videoTypeKeywords = {
+      science: ['research', 'study', 'experiment', 'theory', 'discovery'],
+      history: ['historical', 'ancient', 'period', 'era', 'civilization'],
+      technology: ['innovation', 'development', 'digital', 'software', 'system'],
+      educational: ['learning', 'teaching', 'knowledge', 'concept', 'principle']
+    };
+    
+    const typeKeywords = videoTypeKeywords[analysis.videoType] || [];
+    for (const keyword of typeKeywords) {
+      if (citationLower.includes(keyword)) {
+        return 0.6;
+      }
+    }
+    
+    return 0.3; // Default moderate relevance
+  }
+
+  isGenericTerm(citation) {
+    const genericTerms = [
+      // Core subject areas (too broad)
+      'science', 'technology', 'research', 'study', 'analysis', 'theory',
+      'concept', 'idea', 'principle', 'method', 'approach', 'system',
+      'process', 'development', 'innovation', 'discovery', 'knowledge',
+      'learning', 'education', 'teaching', 'understanding', 'information',
+      'data', 'content', 'material', 'resource', 'tool', 'technique',
+      'strategy', 'solution', 'problem', 'question', 'answer', 'result',
+      
+      // Subject fields (too broad)
+      'mathematics', 'mathematical concepts', 'math', 'physics', 'chemistry',
+      'biology', 'history', 'philosophy', 'economics', 'computer science',
+      'science concepts', 'academic concepts', 'educational content',
+      'fundamental concepts', 'basic principles', 'general knowledge',
+      
+      // Mathematical branches that are too general
+      'algebra', 'geometry', 'trigonometry', 'statistics', 'arithmetic',
+      'mathematical', 'mathematical theory', 'mathematical principles',
+      'mathematical methods', 'mathematical concepts', 'math concepts',
+      'number theory', 'discrete math', 'applied mathematics',
+      
+      // Physics branches that are too general  
+      'classical physics', 'modern physics', 'theoretical physics',
+      'applied physics', 'physics concepts', 'physical principles',
+      
+      // Generic academic terms
+      'academic', 'scholarly', 'educational', 'scientific',
+      'theoretical', 'practical', 'fundamental', 'basic', 'advanced',
+      'introduction', 'overview', 'summary', 'explanation',
+      
+      // Video analysis artifacts
+      'unknown video', 'unknown channel', 'video analysis', 'content analysis',
+      'video content', 'educational video', 'tutorial', 'lesson'
+    ];
+    
+    const citationLower = citation.toLowerCase().trim();
+    
+    // Check exact matches
+    if (genericTerms.includes(citationLower)) {
+      return true;
+    }
+    
+    // Check if it's too short
+    if (citationLower.length < 3) {
+      return true;
+    }
+    
+    // Check for generic patterns
+    const genericPatterns = [
+      /^(basic|fundamental|advanced|introduction to|intro to)\s/i,
+      /\s(concepts?|principles?|theory|theories|methods?)$/i,
+      /^(general|broad|wide)\s/i,
+      /\s(overview|summary|explanation|tutorial)$/i
+    ];
+    
+    return genericPatterns.some(pattern => pattern.test(citation));
   }
 
   inferCitationType(item, analysis) {
@@ -757,20 +1023,26 @@ Please provide a detailed JSON response with:
       }
     }
     
-    // If no citations found, generate generic but relevant ones based on video title
+    // Only generate fallback citations if no high-quality citations found
     if (citations.length === 0) {
-      console.log('🎯 No specific matches found, generating contextual citations...');
+      console.log('🎯 No high-quality citations found, checking for title-based matches...');
       const titleWords = videoTitle.toLowerCase().split(/\s+/);
+      const textWords = text.toLowerCase().split(/\s+/);
       
-      // Generate citations based on common educational topics
-      if (titleWords.some(word => ['physics', 'science', 'quantum', 'space', 'universe'].includes(word))) {
+      // Only generate if there's strong evidence in title AND content
+      const physicsKeywords = ['physics', 'quantum', 'relativity', 'mechanics', 'particle'];
+      const historyKeywords = ['history', 'historical', 'ancient', 'civilization', 'empire', 'war'];
+      const techKeywords = ['technology', 'programming', 'software', 'algorithm', 'ai', 'computer'];
+      
+      if (physicsKeywords.some(kw => titleWords.includes(kw)) && 
+          physicsKeywords.some(kw => textWords.includes(kw))) {
         citations.push({
-          title: 'Fundamental Physics Concepts',
+          title: `${videoTitle.split(' ').slice(0, 3).join(' ')} - Physics Analysis`,
           type: 'topic',
-          confidence: 0.85,
-          source: 'contextual_ai',
+          confidence: 0.75,
+          source: 'title_validated',
           timestamp: 0,
-          llmContext: `Generated from physics video analysis: "${videoTitle}"`,
+          llmContext: `Topic derived from physics video content analysis`,
           videoType: 'educational',
           priority: 'normal',
           author: null,
@@ -778,14 +1050,15 @@ Please provide a detailed JSON response with:
         });
       }
       
-      if (titleWords.some(word => ['history', 'historical', 'ancient', 'civilization'].includes(word))) {
+      if (historyKeywords.some(kw => titleWords.includes(kw)) && 
+          historyKeywords.some(kw => textWords.includes(kw))) {
         citations.push({
-          title: 'Historical Context and Analysis',
+          title: `${videoTitle.split(' ').slice(0, 3).join(' ')} - Historical Context`,
           type: 'topic',
-          confidence: 0.85,
-          source: 'contextual_ai',
+          confidence: 0.75,
+          source: 'title_validated',
           timestamp: 0,
-          llmContext: `Generated from history video analysis: "${videoTitle}"`,
+          llmContext: `Historical topic derived from video content analysis`,
           videoType: 'educational',
           priority: 'normal',
           author: null,
@@ -793,14 +1066,15 @@ Please provide a detailed JSON response with:
         });
       }
       
-      if (titleWords.some(word => ['technology', 'innovation', 'future', 'digital'].includes(word))) {
+      if (techKeywords.some(kw => titleWords.includes(kw)) && 
+          techKeywords.some(kw => textWords.includes(kw))) {
         citations.push({
-          title: 'Technology and Innovation',
+          title: `${videoTitle.split(' ').slice(0, 3).join(' ')} - Technology Focus`,
           type: 'technology',
-          confidence: 0.85,
-          source: 'contextual_ai',
+          confidence: 0.75,
+          source: 'title_validated',
           timestamp: 0,
-          llmContext: `Generated from technology video analysis: "${videoTitle}"`,
+          llmContext: `Technology topic derived from video content analysis`,
           videoType: 'technology',
           priority: 'normal',
           author: null,
@@ -3949,10 +4223,38 @@ async function getVideoText() {
     console.warn('Error extracting real transcript:', error);
   }
   
-  // Fallback: return sample text for testing
-  console.log('📝 Using sample text for testing...');
+  // Fallback: try to get any available text from the page
+  console.log('⚠️ Real transcript extraction failed, trying page content...');
+  
+  // Try to extract any captions or descriptions from the page
+  const captionElements = document.querySelectorAll('[role="button"][aria-label*="Caption"], [aria-label*="subtitle"], .captions-text, .ytp-caption-segment');
+  const descriptionText = document.querySelector('#description-text, #snippet-text, .content.style-scope.ytd-video-secondary-info-renderer')?.textContent?.trim() || '';
+  const videoTitle = document.querySelector('h1[class*="title"] yt-formatted-string, #title h1')?.textContent?.trim() || '';
+  
+  let fallbackText = '';
+  if (captionElements.length > 0) {
+    fallbackText = Array.from(captionElements).map(el => el.textContent?.trim()).filter(text => text && text.length > 0).join(' ');
+  }
+  
+  if (!fallbackText && descriptionText) {
+    fallbackText = descriptionText;
+    console.log('📝 Using video description as fallback content');
+  }
+  
+  if (!fallbackText && videoTitle) {
+    fallbackText = videoTitle;
+    console.log('📝 Using video title as minimal fallback content');
+  }
+  
+  if (!fallbackText) {
+    console.log('❌ No content available - using minimal sample for testing...');
+    fallbackText = "This is a YouTube video without available transcript data.";
+  }
+  
+  console.log(`📝 Fallback content: ${fallbackText.length} characters - "${fallbackText.substring(0, 200)}..."`);
+  
   return { 
-    text: "Check out the book 'Sapiens' by Yuval Noah Harari. Also, there's an interesting study published in Science about human evolution. I recommend reading 'Atomic Habits' by James Clear. Einstein developed the theory of Quantum Mechanics. CERN is conducting experiments on Particle Physics. Quantum Entanglement is a fascinating phenomenon. The Double Slit Experiment demonstrates wave-particle duality. Watch the documentary 'Free Solo' about rock climbing. There's a great TED talk about artificial intelligence. Check out the Netflix series 'Our Planet' for amazing nature footage. Veritasium explains quantum physics really well.",
+    text: fallbackText,
     segments: []
   };
 }
@@ -4480,14 +4782,26 @@ function createCitationCard(citation, index, typeIcon, typeColor, confidenceColo
           </div>
         </div>
         
-        <div style="
-          background: ${confidenceColor}20;
-          color: ${confidenceColor};
-          padding: 4px 8px;
-          border-radius: 12px;
-          font-size: 11px;
-          font-weight: 600;
-        ">${Math.round(citation.confidence * 100)}%</div>
+        <div style="display: flex; gap: 4px; align-items: center;">
+          ${citation.validationScore !== undefined ? `
+            <div style="
+              background: ${citation.validationScore > 0.8 ? '#10b981' : citation.validationScore > 0.6 ? '#f59e0b' : '#ef4444'}20;
+              color: ${citation.validationScore > 0.8 ? '#10b981' : citation.validationScore > 0.6 ? '#f59e0b' : '#ef4444'};
+              padding: 4px 6px;
+              border-radius: 8px;
+              font-size: 10px;
+              font-weight: 600;
+            ">✓${Math.round(citation.validationScore * 100)}%</div>
+          ` : ''}
+          <div style="
+            background: ${confidenceColor}20;
+            color: ${confidenceColor};
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+          ">${Math.round(citation.confidence * 100)}%</div>
+        </div>
       </div>
       
       <h3 style="

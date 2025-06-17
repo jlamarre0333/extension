@@ -5,6 +5,7 @@
 - [x] Add retry logic and enhanced error handling for LLM API calls
 - [x] Implement comprehensive fallback analysis system with high-quality citations
 - [x] Enhance status indicators and user feedback during AI analysis
+- [x] Refine LLM prompt and validation to eliminate generic citations like "algebra" and "mathematics"
 
 ## To Do
 
