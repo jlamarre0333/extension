@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Citation Cross-Reference Test",
-  "version": "1.0.0",
-  "description": "Test the enhanced citation detection on real YouTube videos",
+  "name": "Citation Cross-Reference with AI",
+  "version": "1.1.0",
+  "description": "Enhanced citation detection using AI for better educational content analysis on YouTube",
   
   "permissions": [
     "activeTab",
@@ -11,7 +11,8 @@
   
   "host_permissions": [
     "https://www.youtube.com/*",
-    "https://www.googleapis.com/*"
+    "https://www.googleapis.com/*",
+    "http://localhost:*"
   ],
   
   "content_scripts": [
@@ -20,5 +21,14 @@
       "js": ["working-content.js"],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  
+  "background": {
+    "service_worker": "background/background.js"
+  },
+  
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Citation Cross-Reference"
+  }
 } 

@@ -1,7 +1,9 @@
 # Citation Cross-Reference Extension - Task Board
 
 ## Doing
-- [x] Test improved citation detection with real videos
+- [x] Integrate LLM citation detector into main content script for real YouTube videos
+- [x] Set up automatic CORS proxy management for seamless LLM integration
+- [x] Enhance transcript processing pipeline to send complete data to Ollama for analysis
 
 ## To Do
 
@@ -12,6 +14,13 @@
 ### Phase 3: Video Discovery Feature (Weeks 5-6)
 
 ### Phase 4: Enhanced Detection (Weeks 7-8)
+- [ ] Test and validate LLM integration with real YouTube videos with transcripts
+- [ ] Update citation display logic to show LLM-generated citations with rich metadata
+- [ ] Enhance background script to manage LLM analysis requests efficiently
+- [ ] Add performance optimization with intelligent chunking and caching
+- [ ] Implement error handling and fallbacks for when Ollama is unavailable
+- [ ] Create enhanced sidebar UI with LLM citation indicators and confidence scores
+- [ ] Add settings and configuration for LLM features in popup
 - [ ] Implement context-aware citation matching
 - [ ] Add confidence scoring for detected citations
 - [ ] Create user feedback system for improving accuracy
@@ -67,6 +76,10 @@
 - [x] Major citation detection overhaul - implemented intent-based detection with explicit citation context patterns only
 - [x] Added place and people detection - now detects locations like Malta and famous people mentioned in videos
 - [x] Added comprehensive new categories: companies (Apple, Google), technologies (AI, Blockchain), historical events (World War II, French Revolution), with vastly expanded coverage
+- [x] Built LLM-enhanced citation detection system using Ollama for local, context-aware analysis
+- [x] Created advanced test interface with YouTube URL input, custom text testing, and transcript display
+- [x] Integrated free local LLM (Llama 3.2) for superior citation accuracy and contextual understanding
+- [x] Implement LLM-enhanced citation detection with Ollama integration
 
 ## Backlog Ideas
 - [ ] Integration with note-taking apps (Notion, Obsidian)

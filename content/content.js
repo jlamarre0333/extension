@@ -8,6 +8,8 @@ class CitationCrossReference {
     this.lastProcessedTime = 0;
     this.allCitations = [];
     this.allVideos = [];
+    this.llmDetector = null;
+    this.useEnhancedDetection = true; // Enable LLM detection by default
   }
 
   /**
@@ -32,6 +34,9 @@ class CitationCrossReference {
       return;
     }
 
+    // Initialize LLM Citation Detector
+    await this.initializeLLMDetector();
+
     // Initialize UI
     await window.UIInjector.init();
 
@@ -48,6 +53,32 @@ class CitationCrossReference {
     this.setupMessageListeners();
 
     log('Extension initialized successfully');
+  }
+
+  /**
+   * Initialize the LLM Citation Detector
+   */
+  async initializeLLMDetector() {
+    const { log } = window.CitationHelpers;
+    
+    try {
+      // Check if LLM detector is available
+      if (typeof LLMCitationDetector !== 'undefined') {
+        this.llmDetector = new LLMCitationDetector();
+        
+        // Set up Ollama as the provider (free local LLM)
+        this.llmDetector.setAPIKey('ollama', 'ollama');
+        
+        log('🤖 LLM Citation Detector initialized successfully');
+        this.useEnhancedDetection = true;
+      } else {
+        log('⚠️ LLM Citation Detector not available, using standard detection only');
+        this.useEnhancedDetection = false;
+      }
+    } catch (error) {
+      log('❌ Failed to initialize LLM detector:', error.message);
+      this.useEnhancedDetection = false;
+    }
   }
 
   /**
@@ -173,7 +204,86 @@ class CitationCrossReference {
     // Combine all transcript text for comprehensive analysis
     const fullText = transcript.map(segment => segment.text).join(' ');
     
-    // Analyze for citations
+    let citations = [];
+    
+    // Try LLM-enhanced detection first
+    if (this.useEnhancedDetection && this.llmDetector) {
+      try {
+        log('🤖 Using LLM-enhanced citation detection...');
+        window.UIInjector.showLoading('AI is analyzing content...');
+        
+        // Get video metadata for LLM analysis
+        const videoMetadata = await this.getVideoMetadata(fullText, transcript);
+        
+        // Use LLM analysis
+        citations = await this.llmDetector.analyzeVideoContent(videoMetadata);
+        
+        if (citations && citations.length > 0) {
+          log(`🎯 LLM analysis successful: ${citations.length} citations found`);
+          
+          // Enhance citations with timestamps from transcript
+          citations = this.enhanceCitationsWithTimestamps(citations, transcript);
+        } else {
+          throw new Error('LLM analysis returned no results');
+        }
+        
+      } catch (error) {
+        log('⚠️ LLM analysis failed, falling back to standard detection:', error.message);
+        // Fall back to standard detection
+        citations = await this.performStandardDetection(fullText, transcript);
+      }
+    } else {
+      // Use standard detection
+      log('📋 Using standard citation detection...');
+      citations = await this.performStandardDetection(fullText, transcript);
+    }
+
+    this.allCitations = citations;
+    
+    // TODO: Analyze for video mentions (Phase 3)
+    this.allVideos = [];
+
+    // Update UI
+    window.UIInjector.updateContent(this.allCitations, this.allVideos);
+    window.UIInjector.updateToggleButton(this.allCitations.length + this.allVideos.length);
+
+    log(`✅ Citation analysis complete: ${citations.length} citations found`);
+  }
+
+  /**
+   * Get video metadata for LLM analysis
+   */
+  async getVideoMetadata(fullText, transcript) {
+    const { getYouTubeVideoId } = window.CitationHelpers;
+    
+    // Get video title and description from YouTube page
+    const titleElement = document.querySelector('h1[class*="title"] yt-formatted-string');
+    const channelElement = document.querySelector('#channel-name a, #channel-name yt-formatted-string');
+    const descriptionElement = document.querySelector('#description-text, #snippet-text');
+    
+    const videoId = getYouTubeVideoId();
+    const title = titleElement ? titleElement.textContent.trim() : `YouTube Video (${videoId})`;
+    const channelName = channelElement ? channelElement.textContent.trim() : 'Unknown Channel';
+    const description = descriptionElement ? descriptionElement.textContent.trim() : '';
+    
+    return {
+      title: title,
+      channelName: channelName,
+      description: description,
+      transcript: transcript, // Pass the structured transcript
+      videoId: videoId
+    };
+  }
+
+  /**
+   * Perform standard citation detection (fallback)
+   */
+  async performStandardDetection(fullText, transcript) {
+    const { log } = window.CitationHelpers;
+    
+    window.UIInjector.showLoading('Analyzing content...');
+    
+    // Use the existing citation detector
     const citations = await window.CitationDetector.analyzeText(fullText, 0);
     
     // For each citation, find the best matching timestamp
@@ -186,17 +296,49 @@ class CitationCrossReference {
         citation.timestamp = matchingSegment.start;
       }
     }
-
-    this.allCitations = citations;
     
-    // TODO: Analyze for video mentions (Phase 3)
-    this.allVideos = [];
+    log(`📋 Standard detection complete: ${citations.length} citations found`);
+    return citations;
+  }
 
-    // Update UI
-    window.UIInjector.updateContent(this.allCitations, this.allVideos);
-    window.UIInjector.updateToggleButton(this.allCitations.length + this.allVideos.length);
-
-    log(`Initial analysis complete: ${citations.length} citations found`);
+  /**
+   * Enhance LLM citations with timestamps from transcript
+   */
+  enhanceCitationsWithTimestamps(citations, transcript) {
+    const { log } = window.CitationHelpers;
+    
+    for (const citation of citations) {
+      // Find the best matching transcript segment for this citation
+      const searchTerms = [
+        citation.title,
+        citation.title.split(' ').slice(0, 3).join(' '), // First 3 words
+        citation.title.split(' ')[0] // First word
+      ];
+      
+      let bestMatch = null;
+      let bestScore = 0;
+      
+      for (const segment of transcript) {
+        for (const term of searchTerms) {
+          if (term.length > 3 && segment.text.toLowerCase().includes(term.toLowerCase())) {
+            const score = term.length / citation.title.length;
+            if (score > bestScore) {
+              bestScore = score;
+              bestMatch = segment;
+            }
+          }
+        }
+      }
+      
+      if (bestMatch) {
+        citation.timestamp = bestMatch.start;
+        log(`🕐 Matched "${citation.title}" to timestamp ${bestMatch.start}s`);
+      } else {
+        citation.timestamp = 0; // Default to video start
+      }
+    }
+    
+    return citations;
   }
 
   /**

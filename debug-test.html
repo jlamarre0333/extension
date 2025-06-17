@@ -1,63 +1,539 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Citation Detection Test</title>
+    <title>🤖 LLM Citation Detection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .test-section { border: 1px solid #ddd; padding: 15px; margin: 15px 0; border-radius: 5px; }
+        .results { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007bff; }
+        button { padding: 12px 24px; margin: 8px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; font-size: 14px; }
+        button:hover { background: #0056b3; }
+        button.ollama { background: #ff6b35; }
+        button.ollama:hover { background: #e55a2b; }
+        .citation { background: white; border: 1px solid #ddd; padding: 10px; margin: 8px 0; border-radius: 4px; }
+        .citation-type { color: #666; font-size: 12px; margin-top: 5px; }
+        .status { padding: 8px; border-radius: 4px; margin: 10px 0; }
+        .status.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .status.info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+    </style>
 </head>
 <body>
-    <h1>Citation Detection Test</h1>
-    <p>This page simulates transcript text to test our citation detection.</p>
+    <div class="container">
+        <h1>🤖 LLM Citation Detection Test</h1>
+        <p>Test our enhanced citation detection with different providers:</p>
     
-    <div id="test-transcript">
-        <p>In his book "Sapiens: A Brief History of Humankind", Yuval Noah Harari discusses the cognitive revolution.</p>
-        <p>The study published in Nature shows that climate change is accelerating.</p>
-        <p>There's a great video called "The Power of Vulnerability" by Brené Brown on TED.</p>
-        <p>According to research by Stanford University, meditation improves focus.</p>
-        <p>The author Malcolm Gladwell wrote "Outliers: The Story of Success".</p>
+        <div class="test-section">
+            <h2>🦙 Ollama Test (Local LLM)</h2>
+            <p>Test with your local Ollama installation using YouTube videos or custom text:</p>
+            
+            <div style="margin: 15px 0;">
+                <label for="youtube-url" style="display: block; margin-bottom: 5px; font-weight: bold;">📺 YouTube URL:</label>
+                <input type="text" id="youtube-url" placeholder="https://www.youtube.com/watch?v=..." 
+                       style="width: 70%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <button class="ollama" onclick="testWithYouTube()" style="margin-left: 10px;">🎥 Test YouTube Video</button>
+                
+                <div style="margin-top: 8px; font-size: 12px; color: #666;">
+                    <strong>Quick Test URLs:</strong> 
+                    <a href="#" onclick="document.getElementById('youtube-url').value='https://www.youtube.com/watch?v=malta_travel_demo'; return false;" style="color: #007bff; margin: 0 8px;">Malta Travel</a>
+                    <a href="#" onclick="document.getElementById('youtube-url').value='https://www.youtube.com/watch?v=tech_business_demo'; return false;" style="color: #007bff; margin: 0 8px;">Tech Business</a>
+                    <a href="#" onclick="document.getElementById('youtube-url').value='https://www.youtube.com/watch?v=science_education_demo'; return false;" style="color: #007bff; margin: 0 8px;">Science Education</a>
+                </div>
+            </div>
+            
+            <div style="margin: 15px 0;">
+                <label for="custom-text" style="display: block; margin-bottom: 5px; font-weight: bold;">📝 Custom Text:</label>
+                <textarea id="custom-text" placeholder="Enter video transcript or any text to analyze..." 
+                         style="width: 100%; height: 100px; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"></textarea>
+                <button class="ollama" onclick="testWithCustomText()" style="margin-top: 8px;">🚀 Test Custom Text</button>
+                
+                <div style="margin-top: 8px; font-size: 12px; color: #666;">
+                    <strong>Quick Fill:</strong> 
+                    <a href="#" onclick="fillSampleText('malta')" style="color: #007bff; margin: 0 8px;">Malta Travel</a>
+                    <a href="#" onclick="fillSampleText('tech')" style="color: #007bff; margin: 0 8px;">Tech Business</a>
+                    <a href="#" onclick="fillSampleText('history')" style="color: #007bff; margin: 0 8px;">History & Science</a>
+                </div>
+            </div>
+            
+            <button onclick="testOllamaDefault()" style="background: #6c757d;">🧪 Test with Sample Content</button>
+            
+            <div id="ollama-status" class="status info">Enter a YouTube URL or custom text above to test!</div>
+            <div id="transcript-display" class="results" style="display: none;"></div>
+            
+            <!-- Console Log Display -->
+            <div class="console-section" style="margin: 15px 0;">
+                <h4>📋 Live Console Output <button onclick="clearConsole()" style="font-size: 12px; margin-left: 10px; padding: 2px 8px;">Clear</button></h4>
+                <div id="console-output" style="background: #1a1a1a; color: #00ff00; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 11px; max-height: 300px; overflow-y: auto; white-space: pre-wrap; border: 1px solid #333;"></div>
+            </div>
+            
+            <div id="ollama-results" class="results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🧪 Mock Analysis Test</h2>
+            <p>Test with built-in mock analysis (no API needed):</p>
+            <button onclick="testMock()">Test Mock Analysis</button>
+            <div id="mock-results" class="results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📝 Sample Content</h2>
+            <div id="test-transcript">
+                <p><strong>Malta Travel Video:</strong> Welcome to Malta! This Mediterranean island between Italy and Sicily is amazing. We'll visit Valletta, the capital city, and explore the Blue Lagoon.</p>
+                <p><strong>Tech Business:</strong> Steve Jobs revolutionized Apple and the technology industry. Elon Musk built Tesla. Google and Microsoft use artificial intelligence.</p>
+                <p><strong>History/Science:</strong> Einstein developed the theory of relativity. Newton discovered laws of motion. World War II shaped modern history.</p>
+            </div>
+        </div>
     </div>
 
-    <script src="utils/helpers.js"></script>
-    <script src="content/citation-detector.js"></script>
+    <script src="llm-citation-detector.js"></script>
     <script>
-        // Test citation detection
-        async function testCitationDetection() {
-            console.log('Testing citation detection...');
+        // Test with YouTube URL
+        async function testWithYouTube() {
+            const urlInput = document.getElementById('youtube-url');
+            const statusDiv = document.getElementById('ollama-status');
+            const transcriptDiv = document.getElementById('transcript-display');
+            const resultsDiv = document.getElementById('ollama-results');
             
-            const testText = document.getElementById('test-transcript').textContent;
-            console.log('Test text:', testText);
+            const youtubeUrl = urlInput.value.trim();
             
-            if (window.CitationDetector) {
-                const citations = await window.CitationDetector.analyzeText(testText, 0);
-                console.log('Found citations:', citations);
+            if (!youtubeUrl) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Please enter a YouTube URL';
+                return;
+            }
+            
+            statusDiv.className = 'status info';
+            statusDiv.textContent = '📺 Extracting video ID...';
+            console.log('🎬 Starting YouTube URL test with:', youtubeUrl);
+            
+            try {
+                // Extract video ID from URL
+                const videoId = extractVideoId(youtubeUrl);
+                console.log('🆔 Extracted video ID:', videoId);
                 
-                // Display results
-                const results = document.createElement('div');
-                results.innerHTML = '<h2>Detection Results:</h2>';
-                
-                if (citations.length > 0) {
-                    citations.forEach(citation => {
-                        results.innerHTML += `
-                            <div style="border: 1px solid #ccc; margin: 10px; padding: 10px;">
-                                <strong>Type:</strong> ${citation.type}<br>
-                                <strong>Title:</strong> ${citation.title}<br>
-                                <strong>Author:</strong> ${citation.author || 'N/A'}<br>
-                                <strong>Confidence:</strong> ${(citation.confidence * 100).toFixed(1)}%<br>
-                                <strong>Context:</strong> ${citation.context}
-                            </div>
-                        `;
-                    });
-                } else {
-                    results.innerHTML += '<p>No citations detected.</p>';
+                if (!videoId) {
+                    throw new Error('Invalid YouTube URL. Please use format: https://www.youtube.com/watch?v=VIDEO_ID');
                 }
                 
-                document.body.appendChild(results);
-            } else {
-                console.error('CitationDetector not loaded');
-                document.body.innerHTML += '<p style="color: red;">CitationDetector not loaded!</p>';
+                statusDiv.textContent = '📜 Generating transcript (mock for demo)...';
+                
+                // Get transcript
+                const transcript = await fetchYouTubeTranscript(videoId);
+                console.log('📄 Transcript length:', transcript.length, 'characters');
+                
+                // Display transcript
+                transcriptDiv.style.display = 'block';
+                transcriptDiv.innerHTML = `
+                    <h3>📜 Video Transcript (${transcript.length} characters)</h3>
+                    <div style="max-height: 200px; overflow-y: auto; padding: 10px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; font-family: monospace; font-size: 12px; line-height: 1.4;">
+                        ${transcript.length > 2000 ? transcript.substring(0, 2000) + '...\n\n[Truncated for display - full text sent to LLM]' : transcript}
+                    </div>
+                `;
+                
+                await analyzeWithOllama(transcript, `YouTube Video (${videoId})`, statusDiv, resultsDiv);
+                
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `❌ Error: ${error.message}`;
+                console.error('❌ YouTube test error:', error);
+                transcriptDiv.style.display = 'none';
             }
         }
         
-        // Run test when page loads
-        setTimeout(testCitationDetection, 1000);
+        // Test with custom text
+        async function testWithCustomText() {
+            const textInput = document.getElementById('custom-text');
+            const statusDiv = document.getElementById('ollama-status');
+            const transcriptDiv = document.getElementById('transcript-display');
+            const resultsDiv = document.getElementById('ollama-results');
+            
+            const customText = textInput.value.trim();
+            
+            if (!customText) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Please enter some text to analyze';
+                return;
+            }
+            
+            // Display the input text
+            transcriptDiv.style.display = 'block';
+            transcriptDiv.innerHTML = `
+                <h3>📝 Input Text (${customText.length} characters)</h3>
+                <div style="max-height: 200px; overflow-y: auto; padding: 10px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; font-family: monospace; font-size: 12px; line-height: 1.4;">
+                    ${customText}
+                </div>
+            `;
+            
+            await analyzeWithOllama(customText, 'Custom Text', statusDiv, resultsDiv);
+        }
+
+        // Test with default sample content
+        async function testOllamaDefault() {
+            const statusDiv = document.getElementById('ollama-status');
+            const transcriptDiv = document.getElementById('transcript-display');
+            const resultsDiv = document.getElementById('ollama-results');
+            
+            const sampleText = "Welcome to Malta! This Mediterranean island between Italy and Sicily is amazing. We'll visit Valletta, the capital city, explore the Blue Lagoon, and learn about the Knights of Malta. Steve Jobs would have loved the innovation here.";
+            
+            // Display the sample text
+            transcriptDiv.style.display = 'block';
+            transcriptDiv.innerHTML = `
+                <h3>🧪 Sample Content (${sampleText.length} characters)</h3>
+                <div style="padding: 10px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; font-family: monospace; font-size: 12px; line-height: 1.4;">
+                    ${sampleText}
+                </div>
+            `;
+            
+            await analyzeWithOllama(sampleText, 'Sample Content', statusDiv, resultsDiv);
+        }
+
+        // Common analysis function - updated to handle video metadata
+        async function analyzeWithOllama(content, source, statusDiv, resultsDiv) {
+            statusDiv.className = 'status info';
+            statusDiv.textContent = '🦙 Setting up Ollama...';
+            console.log('🦙 Starting Ollama analysis for:', source);
+            
+            // Handle both text and video data formats
+            let videoData;
+            if (typeof content === 'string') {
+                // Legacy text format - convert to video data format
+                videoData = {
+                    title: `${source} Content`,
+                    channelName: 'Test Channel',
+                    description: 'Testing content for citation detection',
+                    transcript: content
+                };
+                console.log('📝 Text to analyze:', content.substring(0, 200) + '...');
+            } else {
+                // New video data format
+                videoData = content;
+                console.log('📺 Video to analyze:', {
+                    title: videoData.title,
+                    channel: videoData.channelName,
+                    transcriptLength: videoData.transcript.length
+                });
+            }
+            
+            try {
+                // Setup Ollama
+                window.setupLLMDetection('ollama', 'ollama');
+                console.log('✅ Ollama setup complete');
+                
+                statusDiv.textContent = '🦙 Analyzing with LLM...';
+                
+                const citations = await window.LLMCitationDetector.analyzeVideoContent(videoData);
+                console.log('🎯 Citations found:', citations);
+                
+                statusDiv.className = 'status success';
+                statusDiv.textContent = `✅ Ollama analysis complete! Found ${citations.length} citations from ${source}`;
+                
+                showResults('ollama-results', `Ollama Analysis - ${source}`, citations);
+                
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `❌ Ollama error: ${error.message}. Make sure Ollama is running!`;
+                console.error('❌ Ollama analysis error:', error);
+            }
+        }
+
+        // Test with mock analysis
+        async function testMock() {
+            const resultsDiv = document.getElementById('mock-results');
+            
+            try {
+                // Test with full video metadata
+                const testVideoData = {
+                    title: 'Educational Journey: Malta, Tech Giants & Science',
+                    channelName: 'Knowledge Explorer',
+                    description: 'An educational exploration covering Malta\'s history, technology innovations by Steve Jobs and Apple, and Einstein\'s scientific contributions.',
+                    transcript: "Welcome to Malta! This Mediterranean island is amazing. Steve Jobs revolutionized Apple. Einstein developed relativity theory. World War II shaped history."
+                };
+                
+                console.log('🧪 Testing with mock video data:', testVideoData);
+                
+                const citations = await window.LLMCitationDetector.analyzeVideoContent(testVideoData);
+                
+                showResults('mock-results', 'Mock Analysis', citations);
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+                console.error('Mock test error:', error);
+            }
+        }
+
+        // Display video metadata
+        function displayVideoMetadata(videoData) {
+            const metadataDiv = document.getElementById('transcript-display');
+            if (!metadataDiv) return;
+            
+            metadataDiv.style.display = 'block';
+            metadataDiv.innerHTML = `
+                <h3>📺 Video Metadata</h3>
+                <div style="background: #e3f2fd; padding: 12px; border-radius: 6px; margin-bottom: 10px;">
+                    <div><strong>📺 Title:</strong> ${videoData.title}</div>
+                    <div><strong>👤 Channel:</strong> ${videoData.channelName}</div>
+                    <div><strong>📝 Description:</strong> ${videoData.description}</div>
+                    <div><strong>📊 Transcript Length:</strong> ${videoData.transcript.length} characters</div>
+                </div>
+            `;
+        }
+
+        // Display results helper
+        function showResults(containerId, testName, citations) {
+            const container = document.getElementById(containerId);
+            
+            if (!citations || citations.length === 0) {
+                container.innerHTML = '<p>❌ No citations detected</p>';
+                return;
+            }
+
+            let html = `<h3>✅ ${testName}: Found ${citations.length} citations</h3>`;
+            
+            // Group citations by priority if available
+            const highPriority = citations.filter(c => c.priority === 'high');
+            const normalPriority = citations.filter(c => c.priority === 'normal');
+            const lowPriority = citations.filter(c => c.priority === 'low');
+            const unspecified = citations.filter(c => !c.priority);
+            
+            // Display high priority citations first
+            if (highPriority.length > 0) {
+                html += '<h4 style="color: #e74c3c; margin-top: 15px;">⭐ High Priority Citations</h4>';
+                highPriority.forEach(citation => {
+                    html += formatCitation(citation);
+                });
+            }
+            
+            // Display normal priority citations
+            if (normalPriority.length > 0) {
+                html += '<h4 style="color: #3498db; margin-top: 15px;">🎯 Normal Priority Citations</h4>';
+                normalPriority.forEach(citation => {
+                    html += formatCitation(citation);
+                });
+            }
+            
+            // Display low priority citations
+            if (lowPriority.length > 0) {
+                html += '<h4 style="color: #95a5a6; margin-top: 15px;">📚 Topic Citations</h4>';
+                lowPriority.forEach(citation => {
+                    html += formatCitation(citation);
+                });
+            }
+            
+            // Display unspecified priority citations
+            if (unspecified.length > 0) {
+                unspecified.forEach(citation => {
+                    html += formatCitation(citation);
+                });
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        function formatCitation(citation) {
+            const typeColor = getTypeColor(citation.type);
+            return `
+                <div class="citation">
+                    <strong>${citation.title}</strong>
+                    <div class="citation-type" style="color: ${typeColor}">
+                        🏷️ Type: ${citation.type} | 
+                        📊 Confidence: ${(citation.confidence * 100).toFixed(0)}% | 
+                        🔍 Source: ${citation.source}
+                        ${citation.videoType ? ` | 🎬 Video: ${citation.videoType}` : ''}
+                    </div>
+                    ${citation.llmContext ? `<div style="margin-top: 8px;"><em>📝 Context: ${citation.llmContext}</em></div>` : ''}
+                </div>
+            `;
+        }
+
+        function getTypeColor(type) {
+            const colors = {
+                'place': '#28a745',      // Green
+                'person': '#007bff',     // Blue
+                'company': '#fd7e14',    // Orange
+                'technology': '#6f42c1', // Purple
+                'event': '#dc3545',      // Red
+                'topic': '#20c997',      // Teal
+                'book': '#6c757d',       // Gray
+                'product': '#e83e8c'     // Pink
+            };
+            return colors[type] || '#333';
+        }
+
+        // Helper function to extract YouTube video ID from URL
+        function extractVideoId(url) {
+            const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+            const match = url.match(regex);
+            return match ? match[1] : null;
+        }
+
+        // Function to fetch YouTube transcript using various methods
+        async function fetchYouTubeTranscript(videoId) {
+            console.log('🔍 Attempting to fetch transcript for video ID:', videoId);
+            
+            try {
+                // For demo purposes, we'll simulate a real transcript fetch
+                // In a real Chrome extension, this would use proper YouTube transcript APIs
+                console.log('⚠️ Note: Using mock transcript for demo (real extension would fetch actual transcript)');
+                
+                // Simulate loading delay
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Generate realistic mock transcript based on video ID
+                const transcript = generateMockTranscript(videoId);
+                
+                console.log('✅ Generated mock transcript:', transcript.substring(0, 100) + '...');
+                return transcript;
+                
+            } catch (error) {
+                console.error('Error fetching transcript:', error);
+                // Return basic mock transcript as fallback
+                return generateMockTranscript(videoId);
+            }
+        }
+
+        // Parse XML transcript format
+        function parseXMLTranscript(xmlText) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+            const textElements = xmlDoc.querySelectorAll('text');
+            
+            let fullText = '';
+            
+            textElements.forEach(element => {
+                const text = element.textContent
+                    .replace(/&amp;/g, '&')
+                    .replace(/&lt;/g, '<')
+                    .replace(/&gt;/g, '>')
+                    .trim();
+                
+                if (text) {
+                    fullText += text + ' ';
+                }
+            });
+            
+            return fullText.trim();
+        }
+
+        // Generate mock video data including title, description, channel, and transcript
+        function generateMockVideoData(videoId) {
+            console.log('🎬 Generating mock video data for ID:', videoId);
+            
+            const videoIdLower = videoId.toLowerCase();
+            
+            // Generate appropriate metadata based on video ID
+            let mockData = {
+                title: 'Amazing Educational Content',
+                channelName: 'Demo Channel',
+                description: 'An educational video exploring various topics.',
+                transcript: ''
+            };
+            
+            if (videoIdLower.includes('malta') || videoIdLower.includes('travel')) {
+                mockData = {
+                    title: 'Malta Travel Guide: Mediterranean Paradise',
+                    channelName: 'World Travel Explorer',
+                    description: 'Discover the stunning island of Malta! From the historic capital Valletta to the crystal-clear waters of the Blue Lagoon, this comprehensive travel guide covers everything you need to know about visiting Malta. We explore the rich history of the Knights of Malta, ancient temples, and modern attractions.',
+                    transcript: `Welcome to Malta! This stunning Mediterranean island nation sits between Italy and Sicily. Malta has over 7,000 years of history. Today we're exploring Valletta, the UNESCO World Heritage capital city built by the Knights of Malta. The Blue Lagoon on Comino island offers crystal clear waters. We'll visit the ancient temples of Ħaġar Qim, older than Stonehenge. The Grand Master's Palace showcases the island's rich heritage. From Mdina, the silent city, to the fishing village of Marsaxlokk, Malta offers incredible diversity.`
+                };
+            } else if (videoIdLower.includes('tech') || videoIdLower.includes('business')) {
+                mockData = {
+                    title: 'Tech Giants: How Apple, Google & Microsoft Changed the World',
+                    channelName: 'Tech Business Insider',
+                    description: 'Deep dive into the technology revolution led by visionary leaders like Steve Jobs, Bill Gates, and Elon Musk. Learn how Apple revolutionized personal computing, Google dominated search and AI, and Microsoft built the enterprise software empire. We also explore emerging technologies like blockchain and artificial intelligence.',
+                    transcript: `In today's tech deep dive, we explore how Steve Jobs revolutionized Apple and changed the entire technology industry. Elon Musk is transforming multiple sectors with Tesla's electric vehicles, SpaceX's space exploration, and Neuralink's brain-computer interfaces. Google dominates search and artificial intelligence development. Microsoft leads in cloud computing with Azure. Amazon revolutionized e-commerce and cloud services with AWS. Mark Zuckerberg's Facebook, now Meta, is building the metaverse. These visionaries are defining our digital future.`
+                };
+            } else if (videoIdLower.includes('science') || videoIdLower.includes('education')) {
+                mockData = {
+                    title: 'Greatest Scientists in History: Einstein, Newton & Revolutionary Discoveries',
+                    channelName: 'Science Education Hub',
+                    description: 'Educational documentary exploring the contributions of history\'s greatest minds. From Einstein\'s theory of relativity to Newton\'s laws of motion, discover how these brilliant scientists changed our understanding of the universe. We also cover major historical events like World War II and cultural movements like the Renaissance.',
+                    transcript: `This educational documentary examines history's greatest minds. Albert Einstein developed the theory of relativity, fundamentally changing physics. Isaac Newton formulated the laws of motion and universal gravitation. Marie Curie became the first woman to win a Nobel Prize and remains the only person to win in two different sciences. World War II lasted from 1939 to 1945 and reshaped the global order. The Renaissance period from the 14th to 17th centuries brought unprecedented advances in art and science. Leonardo da Vinci exemplified the Renaissance ideal of the polymath.`
+                };
+            } else {
+                // Default mixed content
+                mockData = {
+                    title: 'Amazing Educational Journey: History, Science & Technology',
+                    channelName: 'Educational Explorer',
+                    description: 'Join us on an educational journey exploring Malta\'s history, the innovations of Steve Jobs at Apple, Einstein\'s revolutionary theories, and the impact of World War II on modern society. Perfect for learners interested in geography, technology, and history.',
+                    transcript: `Welcome to this amazing educational video! Today we're exploring Malta, the beautiful Mediterranean island between Italy and Sicily. We'll learn about Steve Jobs and how he built Apple into a technology giant. We'll also discuss Albert Einstein's theory of relativity and how World War II shaped modern history. This journey will take us through Google's innovations and Microsoft's impact on computing.`
+                };
+            }
+            
+            console.log('📺 Generated video data:', {
+                title: mockData.title,
+                channel: mockData.channelName,
+                transcriptLength: mockData.transcript.length
+            });
+            
+            return mockData;
+        }
+        
+                 // Legacy function for backwards compatibility
+         function generateMockTranscript(videoId) {
+             return generateMockVideoData(videoId).transcript;
+         }
+
+        // Fill sample text in the custom text area
+        function fillSampleText(type) {
+            const textArea = document.getElementById('custom-text');
+            const samples = {
+                'malta': `Welcome to Malta! This beautiful Mediterranean island nation is located between Italy and Sicily. Malta has a rich history dating back thousands of years. We'll explore Valletta, the capital city, which is a UNESCO World Heritage site. The Blue Lagoon on Comino island is absolutely stunning. The Knights of Malta have left their mark throughout the islands.`,
+                
+                'tech': `Today we're discussing the technology revolution. Steve Jobs transformed Apple from a garage startup into the world's most valuable company. Elon Musk is revolutionizing multiple industries with Tesla, SpaceX, and Neuralink. Google has become synonymous with internet search and artificial intelligence. Microsoft continues to innovate with cloud computing.`,
+                
+                'history': `In this educational video, we explore the contributions of great scientists. Albert Einstein developed the theory of relativity, revolutionizing our understanding of space and time. Isaac Newton formulated the laws of motion and universal gravitation. Marie Curie pioneered radioactivity research. World War II was a defining moment in human history, lasting from 1939 to 1945 and reshaping the global order.`
+            };
+            
+            textArea.value = samples[type] || samples['malta'];
+        }
+
+        // Console logging to UI
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const consoleOutput = document.getElementById('console-output');
+        
+        function appendToConsole(message, type = 'log') {
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ff6b6b' : '#00ff00';
+            const prefix = type === 'error' ? '❌' : '📝';
+            
+            const logEntry = document.createElement('div');
+            logEntry.style.color = color;
+            logEntry.textContent = `[${timestamp}] ${prefix} ${message}`;
+            
+            consoleOutput.appendChild(logEntry);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+        
+        // Override console.log to display in UI
+        console.log = function(...args) {
+            const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
+            appendToConsole(message, 'log');
+            originalConsoleLog.apply(console, args);
+        };
+        
+        // Override console.error to display in UI
+        console.error = function(...args) {
+            const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
+            appendToConsole(message, 'error');
+            originalConsoleError.apply(console, args);
+        };
+        
+        function clearConsole() {
+            consoleOutput.innerHTML = '';
+            console.log('Console cleared');
+        }
+
+        // Auto-run mock test on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                console.log('🚀 Page loaded - ready for testing!');
+                console.log('💡 Click "Test Mock Analysis" to see how the system works');
+                console.log('🦙 Make sure Ollama is running on localhost:11434 for LLM tests');
+            }, 1000);
+        });
     </script>
 </body>
 </html> 
