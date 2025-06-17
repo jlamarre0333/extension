@@ -97,6 +97,8 @@ class EnhancedCitationDetector {
     return unique;
   }
 
+
+
   calculateAdvancedConfidence(fullMatch, type, title, author) {
     let confidence = 0.5;
 
