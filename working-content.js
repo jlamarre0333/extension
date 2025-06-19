@@ -158,7 +158,28 @@ class LLMCitationDetector {
         videoMetadata.transcript.substring(0, maxTranscriptLength) + '...' : 
         videoMetadata.transcript;
       
-      const prompt = `You are a specialized academic content analyzer. Your task is to analyze the ACTUAL video transcript and extract specific, nuanced citations that are directly mentioned or discussed in the content.
+      const prompt = `You are a specialized AI for "Smart Citations" - a Chrome extension that helps users discover valuable, specific, and researchable references from YouTube videos.
+
+🎯 PRODUCT GOAL: 
+Extract ONLY high-value citations that viewers can research further to deepen their understanding. We help people find books to read, scientists to learn about, specific theories to study, and concrete concepts to explore.
+
+❌ WHAT WE DON'T WANT (Absolutely avoid these):
+- Generic words: "objects", "thanks", "world", "people", "things", "stuff", "work", "time", "place", "video", "content"
+- Common words: "physics", "science", "math", "research", "study", "analysis", "system", "method", "process"
+- Filler words: "today", "now", "here", "there", "this", "that", "way", "part", "how", "what", "why"
+- Basic materials: "material", "materials", "solid", "liquid", "gas", "matter"
+- Overly broad terms: "technology", "engineering", "education", "learning", "knowledge"
+
+✅ WHAT WE WANT (Focus on these):
+- Specific people's full names: "Albert Einstein", "Marie Curie", "Isaac Newton"
+- Named theories/concepts: "General Relativity", "Quantum Entanglement", "DNA Double Helix"  
+- Specific books: "The Origin of Species", "Principia Mathematica", "A Brief History of Time"
+- Named experiments: "Double-slit Experiment", "Michelson-Morley Experiment"
+- Specific places: "CERN", "MIT", "University of Cambridge", "Silicon Valley"
+- Concrete technologies: "CRISPR", "Large Hadron Collider", "Hubble Telescope"
+- Historical events: "Manhattan Project", "Apollo 11", "Industrial Revolution"
+
+Your task is to analyze the ACTUAL video transcript and extract specific, nuanced citations that are directly mentioned or discussed in the content.
 
 VIDEO METADATA:
 Title: "${videoMetadata.title}"
@@ -201,11 +222,25 @@ QUALITY STANDARDS:
 - Must appear in the actual transcript content
 - Prefer compound terms over single words
 - Focus on what makes this video unique, not generic topics
-- Maximum 8 high-quality citations per video
+- Maximum 6 extremely high-quality citations per video  
 - Each item should lead to specific, educational information
+- REJECT: Common words like "objects", "thanks", "world", "time", "place", "work"
+- REJECT: Generic academic terms like "physics", "science", "research", "study"
+- ACCEPT: Only specific named entities, proper nouns, and unique concepts
 
 RESPONSE REQUIREMENTS:
 Analyze the transcript content and determine what specific topics are actually being discussed. Extract only the most relevant, specific, and educational items that appear in the text.
+
+QUALITY CHECKLIST - Each citation MUST pass ALL criteria:
+✅ Is it a specific named entity (person, place, concept, theory, book, experiment)?  
+✅ Would someone be able to search for it and find detailed information?
+✅ Is it directly mentioned in the transcript (not inferred)?
+✅ Is it more specific than a general subject area?
+✅ Would it help the viewer learn something concrete and specific?
+
+EXAMPLES OF GOOD vs BAD citations:
+❌ BAD: "objects", "physics", "research", "thanks", "world", "time", "material"
+✅ GOOD: "Albert Einstein", "Schrödinger's Cat", "Large Hadron Collider", "Quantum Entanglement"
 
 Please respond with accurate JSON:
 {
@@ -774,7 +809,7 @@ Respond with ONLY valid JSON in this format:
           // Validate citation against transcript content
           const validationScore = this.validateCitationAccuracy(item, fullText, analysis);
           
-          if (validationScore >= 0.75) { // Only include citations with high validation scores
+          if (validationScore >= 0.8) { // Only include citations with very high validation scores
             const accurateTimestamp = this.findAccurateTimestamp(item, transcriptSegments);
             citations.push({
               title: item,
@@ -1169,12 +1204,34 @@ Respond with ONLY valid JSON in this format:
 
   isGenericTerm(citation) {
     const genericTerms = [
+      // ABSOLUTELY FORBIDDEN - Common UI/conversation artifacts
+      'objects', 'thanks', 'thank you', 'welcome', 'hello', 'hi', 'bye', 'goodbye',
+      'please', 'yes', 'no', 'okay', 'ok', 'sure', 'right', 'left', 'up', 'down',
+      'start', 'end', 'begin', 'finish', 'stop', 'go', 'come', 'see', 'look', 'watch',
+      'listen', 'hear', 'know', 'think', 'feel', 'want', 'need', 'get', 'give', 'take',
+      'make', 'do', 'use', 'try', 'help', 'show', 'tell', 'say', 'talk', 'speak',
+      
+      // ABSOLUTELY FORBIDDEN - Generic nouns that appear in transcripts
+      'things', 'stuff', 'something', 'anything', 'everything', 'nothing',
+      'people', 'person', 'guy', 'guys', 'man', 'men', 'woman', 'women',
+      'world', 'earth', 'place', 'places', 'location', 'area', 'space', 'room',
+      'time', 'times', 'moment', 'moments', 'day', 'days', 'today', 'yesterday', 'tomorrow',
+      'way', 'ways', 'method', 'methods', 'how', 'what', 'why', 'when', 'where', 'who',
+      'part', 'parts', 'piece', 'pieces', 'section', 'sections', 'chapter', 'chapters',
+      'work', 'works', 'job', 'jobs', 'task', 'tasks', 'project', 'projects',
+      'video', 'videos', 'content', 'episode', 'episodes', 'series', 'show', 'shows',
+      
+      // ABSOLUTELY FORBIDDEN - Basic materials and states
+      'material', 'materials', 'matter', 'substance', 'substances',
+      'solid', 'liquid', 'gas', 'plasma', 'solid materials', 'liquid materials',
+      'object', 'objects', 'item', 'items', 'element', 'elements',
+      
       // Core subject areas (too broad)
       'science', 'technology', 'research', 'study', 'analysis', 'theory',
-      'concept', 'idea', 'principle', 'method', 'approach', 'system',
+      'concept', 'idea', 'principle', 'approach', 'system',
       'process', 'development', 'innovation', 'discovery', 'knowledge',
       'learning', 'education', 'teaching', 'understanding', 'information',
-      'data', 'content', 'material', 'resource', 'tool', 'technique',
+      'data', 'resource', 'tool', 'technique',
       'strategy', 'solution', 'problem', 'question', 'answer', 'result',
       
       // Subject fields (too broad)
@@ -1207,7 +1264,13 @@ Respond with ONLY valid JSON in this format:
       'england', 'uk', 'britain', 'canada', 'australia', 'japan', 'china',
       'russia', 'brazil', 'mexico', 'india', 'europe', 'asia', 'africa',
       'north america', 'south america', 'middle east', 'eastern europe',
-      'western europe', 'southeast asia', 'north africa', 'sub-saharan africa'
+      'western europe', 'southeast asia', 'north africa', 'sub-saharan africa',
+      
+      // General descriptive words that shouldn't be citations
+      'big', 'small', 'large', 'tiny', 'huge', 'massive', 'little', 'great', 'good', 'bad',
+      'new', 'old', 'young', 'high', 'low', 'fast', 'slow', 'easy', 'hard', 'simple', 'complex',
+      'important', 'interesting', 'amazing', 'incredible', 'beautiful', 'cool', 'awesome',
+      'weird', 'strange', 'normal', 'regular', 'special', 'unique', 'common', 'rare'
     ];
     
     const citationLower = citation.toLowerCase().trim();
@@ -1962,6 +2025,88 @@ class EnhancedCitationDetector {
       /(Civil\s+Rights\s+Movement|Women's\s+Suffrage|Feminist\s+Movement|Environmental\s+Movement|Industrial\s+Revolution|Digital\s+Revolution|Sexual\s+Revolution|Counter-Culture)/gi
     ];
 
+    // EXPANDED: Quote and Direct Citation Patterns - NEW HIGH-VALUE CATEGORY
+    const quotePatterns = [
+      // Direct quotes with attribution - VERY HIGH confidence
+      /["""]([^"""]{20,200})[""']\s*[-–—]\s*([A-Z][a-zA-Z\s\.]{3,40})/gi,
+      // "As Person said/wrote" - HIGH confidence
+      /(?:as|when)\s+([A-Z][a-zA-Z\s\.]{3,40})\s+(?:said|wrote|stated|observed|noted|argued|claimed)\s*[,:"]?\s*["""]?([^"""]{15,150})["""]?/gi,
+      // "Person once said" - HIGH confidence
+      /([A-Z][a-zA-Z\s\.]{3,40})\s+(?:once\s+)?(?:said|wrote|stated|observed|famously\s+said)\s*[,:"]?\s*["""]([^"""]{15,150})[""']/gi,
+      // "According to Person" - MEDIUM-HIGH confidence
+      /(?:according\s+to|per|citing)\s+([A-Z][a-zA-Z\s\.]{3,40})[,:]\s*["""]?([^"""]{15,150})["""]?/gi,
+      // Academic citation style "Person (Year)" - HIGH confidence
+      /([A-Z][a-zA-Z\s\.]{3,40})\s*\((\d{4})\)\s+(?:found|showed|demonstrated|argued|concluded|stated)\s+(?:that\s+)?([^.!?]{20,120})/gi,
+      // "In the words of Person" - HIGH confidence
+      /(?:in\s+the\s+words\s+of|quoting)\s+([A-Z][a-zA-Z\s\.]{3,40})[,:]\s*["""]([^"""]{15,150})[""']/gi
+    ];
+
+    // EXPANDED: Statistics and Data Citations - NEW HIGH-VALUE CATEGORY
+    const statisticsPatterns = [
+      // "Study found X% of" - HIGH confidence
+      /(?:study|research|survey|poll)\s+(?:found|showed|revealed|indicated)\s+(?:that\s+)?(\d{1,3}(?:\.\d+)?%)\s+of\s+([^.!?]{10,80})/gi,
+      // "According to statistics" - MEDIUM confidence
+      /(?:according\s+to|based\s+on)\s+(?:statistics|data|research|studies)\s+(?:from\s+)?([A-Z][^.!?]{5,60})[,.]?\s*(\d{1,3}(?:\.\d+)?%)?/gi,
+      // "X in Y people" or "1 out of 3" - MEDIUM confidence
+      /(\d{1,3})\s+(?:in|out\s+of)\s+(\d{1,3})\s+(?:people|Americans|adults|children|students|users|individuals)\s+([^.!?]{10,80})/gi,
+      // Dollar amounts and market data - MEDIUM confidence
+      /(\$[\d,]+(?:\.\d{2})?(?:\s+billion|\s+million)?)\s+(?:market|industry|revenue|worth|value|cost)\s+([^.!?]{10,60})/gi,
+      // Growth rates and percentages - MEDIUM confidence
+      /(increased|decreased|grew|fell|rose|dropped)\s+by\s+(\d{1,3}(?:\.\d+)?%)\s+([^.!?]{10,60})/gi,
+      // Time-based statistics - MEDIUM confidence
+      /(?:over|in)\s+the\s+(?:past|last)\s+(\d{1,2})\s+(years?|months?|decades?)[,.]?\s*([^.!?]{15,80})/gi
+    ];
+
+    // EXPANDED: Theory and Concept Citations - NEW CATEGORY
+    const theoryPatterns = [
+      // "Theory of X" or "X Theory" - HIGH confidence
+      /(Theory\s+of\s+[A-Z][a-zA-Z\s]{5,40}|[A-Z][a-zA-Z\s]{5,40}\s+Theory)/gi,
+      // "Principle of X" or "X Principle" - HIGH confidence  
+      /(Principle\s+of\s+[A-Z][a-zA-Z\s]{5,40}|[A-Z][a-zA-Z\s]{5,40}\s+Principle)/gi,
+      // "Law of X" or "X's Law" - HIGH confidence
+      /(Law\s+of\s+[A-Z][a-zA-Z\s]{5,40}|[A-Z][a-zA-Z\s]{5,40}'?s?\s+Law)/gi,
+      // "Concept of X" - MEDIUM confidence
+      /(?:concept|notion|idea)\s+of\s+([A-Z][a-zA-Z\s]{5,40})/gi,
+      // "X Model" or "Model of X" - MEDIUM confidence
+      /([A-Z][a-zA-Z\s]{5,40}\s+Model|Model\s+of\s+[A-Z][a-zA-Z\s]{5,40})/gi,
+      // "X Effect" or "X Phenomenon" - MEDIUM confidence
+      /([A-Z][a-zA-Z\s]{5,40}\s+(?:Effect|Phenomenon|Paradox|Problem|Dilemma|Fallacy))/gi,
+      // Philosophical concepts - MEDIUM confidence
+      /(Existentialism|Nihilism|Stoicism|Empiricism|Rationalism|Determinism|Free\s+Will|Utilitarianism|Deontology)/gi
+    ];
+
+    // EXPANDED: Course and Educational Content - NEW CATEGORY
+    const educationalPatterns = [
+      // "Course on X" or "X Course" - HIGH confidence
+      /(?:course|class|training|program|bootcamp|masterclass)\s+(?:on|in|about)\s+([A-Z][a-zA-Z\s]{5,50})/gi,
+      // University courses - HIGH confidence
+      /([A-Z][a-zA-Z\s]{5,50})\s+(?:101|201|course|class)\s+(?:at|from)\s+([A-Z][a-zA-Z\s]{5,40}(?:University|College|Institute))/gi,
+      // "Learn X" or "Master X" - MEDIUM confidence
+      /(?:learn|master|study|understand)\s+([A-Z][a-zA-Z\s]{5,50})\s+(?:online|course|tutorial|guide)/gi,
+      // Certification and degrees - MEDIUM confidence
+      /([A-Z][a-zA-Z\s]{5,50})\s+(?:certification|certificate|degree|diploma|qualification)/gi,
+      // Educational platforms - MEDIUM confidence
+      /(?:Coursera|edX|Udemy|Khan\s+Academy|MIT\s+OpenCourseWare|Pluralsight|LinkedIn\s+Learning)\s+(?:course|class)\s+(?:on|about)\s+([A-Z][a-zA-Z\s]{5,50})/gi,
+      // MOOC and online learning - MEDIUM confidence
+      /(?:MOOC|online\s+course|webinar|workshop)\s+(?:on|about|covering)\s+([A-Z][a-zA-Z\s]{5,50})/gi
+    ];
+
+    // EXPANDED: Software and Tools - NEW CATEGORY
+    const softwarePatterns = [
+      // Programming languages and frameworks - HIGH confidence
+      /(Python|JavaScript|Java|C\+\+|C#|PHP|Ruby|Go|Rust|TypeScript|Swift|Kotlin|Scala|R|MATLAB|SQL)\s+(?:programming|development|tutorial|guide|course)/gi,
+      // Popular software tools - HIGH confidence
+      /(Photoshop|Illustrator|After\s+Effects|Premiere\s+Pro|Final\s+Cut|Logic\s+Pro|Ableton|Spotify|Discord|Slack|Zoom|Teams|Notion|Figma|Sketch|InVision)/gi,
+      // Development tools - HIGH confidence
+      /(Visual\s+Studio|VS\s+Code|IntelliJ|Eclipse|Xcode|Android\s+Studio|Unity|Unreal\s+Engine|Blender|Maya|3ds\s+Max)/gi,
+      // Operating systems - MEDIUM confidence
+      /(Windows\s+\d+|macOS|Linux|Ubuntu|CentOS|Android|iOS)\s+(?:tutorial|guide|setup|installation)/gi,
+      // Cloud platforms - MEDIUM confidence
+      /(AWS|Azure|Google\s+Cloud|Firebase|Heroku|Netlify|Vercel)\s+(?:tutorial|deployment|hosting|service)/gi,
+      // Databases - MEDIUM confidence
+      /(MySQL|PostgreSQL|MongoDB|Firebase|Redis|SQLite|Oracle|SQL\s+Server)\s+(?:database|tutorial|guide)/gi
+    ];
+
     // Scientific concept patterns - More focused but still comprehensive
     const scientificConceptPatterns = [
       // Physics theories (when explicitly discussed)
@@ -2288,6 +2433,169 @@ class EnhancedCitationDetector {
       });
     });
 
+    // Process quote patterns
+    quotePatterns.forEach((pattern, index) => {
+      const matches = [...text.matchAll(pattern)];
+      console.log(`💬 Quote pattern ${index} found ${matches.length} matches`);
+      
+      matches.forEach(match => {
+        let quote, author;
+        
+        if (index === 0) { // Direct quote with attribution
+          quote = match[1];
+          author = match[2];
+        } else if (index === 1 || index === 2) { // As Person said/Person once said
+          author = match[1];
+          quote = match[2];
+        } else if (index === 3) { // According to Person
+          author = match[1];
+          quote = match[2];
+        } else if (index === 4) { // Academic citation style
+          author = match[1];
+          quote = match[3];
+        } else if (index === 5) { // In the words of Person
+          author = match[1];
+          quote = match[2];
+        }
+
+        if (quote && author && quote.length >= 15 && quote.length <= 200) {
+          let confidence = 0.9; // Very high confidence for quotes
+          if (index === 0 || index === 4) confidence = 0.95; // Direct quotes and academic citations
+          
+          console.log(`💬 Found quote: "${quote}" by ${author} (confidence: ${confidence})`);
+          
+          found.push({
+            title: this.cleanTitle(quote),
+            author: this.cleanAuthor(author),
+            type: 'quote',
+            confidence: Math.min(confidence, 1.0),
+            source: 'quote_pattern_' + index
+          });
+        }
+      });
+    });
+
+    // Process statistics patterns  
+    statisticsPatterns.forEach((pattern, index) => {
+      const matches = [...text.matchAll(pattern)];
+      console.log(`📊 Statistics pattern ${index} found ${matches.length} matches`);
+      
+      matches.forEach(match => {
+        let statistic, context;
+        
+        if (index === 0) { // Study found X% of
+          statistic = match[1];
+          context = match[2];
+        } else if (index === 1) { // According to statistics
+          context = match[1];
+          statistic = match[2] || 'statistical data';
+        } else if (index === 2) { // X in Y people
+          statistic = `${match[1]} in ${match[2]}`;
+          context = match[3];
+        } else if (index === 3) { // Dollar amounts
+          statistic = match[1];
+          context = match[2];
+        } else if (index === 4) { // Growth rates
+          statistic = match[2];
+          context = match[3];
+        } else if (index === 5) { // Time-based
+          statistic = `over ${match[1]} ${match[2]}`;
+          context = match[3];
+        }
+
+        if (statistic && context && context.length >= 10) {
+          let confidence = 0.8; // High confidence for statistics
+          
+          console.log(`📊 Found statistic: "${statistic}" context: "${context}" (confidence: ${confidence})`);
+          
+          found.push({
+            title: this.cleanTitle(`${statistic} - ${context}`),
+            author: null,
+            type: 'statistic',
+            confidence: Math.min(confidence, 1.0),
+            source: 'stats_pattern_' + index
+          });
+        }
+      });
+    });
+
+    // Process theory patterns
+    theoryPatterns.forEach((pattern, index) => {
+      const matches = [...text.matchAll(pattern)];
+      console.log(`🧠 Theory pattern ${index} found ${matches.length} matches`);
+      
+      matches.forEach(match => {
+        const theory = match[1] || match[0];
+        
+        if (theory && theory.length >= 5 && theory.length <= 60) {
+          let confidence = 0.85; // High confidence for theories
+          if (index <= 2) confidence = 0.9; // Theory, Principle, Law patterns
+          
+          console.log(`🧠 Found theory/concept: "${theory}" (confidence: ${confidence})`);
+          
+          found.push({
+            title: this.cleanTitle(theory),
+            author: null,
+            type: 'theory',
+            confidence: Math.min(confidence, 1.0),
+            source: 'theory_pattern_' + index
+          });
+        }
+      });
+    });
+
+    // Process educational patterns
+    educationalPatterns.forEach((pattern, index) => {
+      const matches = [...text.matchAll(pattern)];
+      console.log(`🎓 Educational pattern ${index} found ${matches.length} matches`);
+      
+      matches.forEach(match => {
+        const course = match[1];
+        const institution = match[2] || null;
+        
+        if (course && course.length >= 5 && course.length <= 60) {
+          let confidence = 0.75; // Good confidence for educational content
+          if (index <= 1) confidence = 0.85; // Course mentions and university courses
+          if (institution) confidence += 0.1;
+          
+          console.log(`🎓 Found educational content: "${course}" ${institution ? `at ${institution}` : ''} (confidence: ${confidence})`);
+          
+          found.push({
+            title: this.cleanTitle(course),
+            author: institution ? this.cleanAuthor(institution) : null,
+            type: 'course',
+            confidence: Math.min(confidence, 1.0),
+            source: 'education_pattern_' + index
+          });
+        }
+      });
+    });
+
+    // Process software patterns
+    softwarePatterns.forEach((pattern, index) => {
+      const matches = [...text.matchAll(pattern)];
+      console.log(`💻 Software pattern ${index} found ${matches.length} matches`);
+      
+      matches.forEach(match => {
+        const software = match[1];
+        
+        if (software && software.length >= 3 && software.length <= 40) {
+          let confidence = 0.8; // High confidence for software
+          if (index <= 2) confidence = 0.9; // Programming languages and popular tools
+          
+          console.log(`💻 Found software/tool: "${software}" (confidence: ${confidence})`);
+          
+          found.push({
+            title: this.cleanTitle(software),
+            author: null,
+            type: 'software',
+            confidence: Math.min(confidence, 1.0),
+            source: 'software_pattern_' + index
+          });
+        }
+      });
+    });
+
     // Add timestamps to citations if segments are available
     if (segments.length > 0) {
       found.forEach(citation => {
@@ -2300,10 +2608,41 @@ class EnhancedCitationDetector {
 
     // Remove duplicates and sort by confidence
     const unique = this.removeDuplicates(found);
-    const sorted = unique.sort((a, b) => b.confidence - a.confidence);
     
-    console.log(`📚 Found ${sorted.length} potential citations:`, sorted);
-    return sorted.slice(0, 10); // Limit to top 10
+    // Apply strict quality filtering - multiple passes
+    let qualityFiltered = unique.filter(citation => {
+      // Basic confidence threshold
+      if (citation.confidence < 0.7) return false;
+      
+      // Apply generic term filter
+      if (this.isGenericTerm && this.isGenericTerm(citation.title)) {
+        console.log(`🚫 Filtered out generic term: "${citation.title}"`);
+        return false;
+      }
+      
+      // Additional quality checks
+      const title = citation.title.toLowerCase();
+      
+      // Reject single words that are too generic
+      if (!title.includes(' ') && title.length < 6) {
+        console.log(`🚫 Filtered out too short/generic: "${citation.title}"`);
+        return false;
+      }
+      
+      // Reject obviously generic phrases
+      const genericPhrases = ['general', 'basic', 'simple', 'common', 'normal', 'regular'];
+      if (genericPhrases.some(phrase => title.includes(phrase))) {
+        console.log(`🚫 Filtered out generic phrase: "${citation.title}"`);
+        return false;
+      }
+      
+      return true;
+    });
+    
+    const sorted = qualityFiltered.sort((a, b) => b.confidence - a.confidence);
+    
+    console.log(`📚 Found ${sorted.length} high-quality citations (filtered from ${found.length}):`, sorted.map(c => `"${c.title}" (${(c.confidence * 100).toFixed(0)}%)`));
+    return sorted.slice(0, 15); // Reduced to 15 highest-quality citations
   }
 
   cleanTitle(title) {
@@ -2452,39 +2791,76 @@ class EnhancedCitationDetector {
   }
 
   isValidPerson(person) {
-    const personLower = person.toLowerCase();
+    const personLower = person.toLowerCase().trim();
     
-    // Filter out common false positives
-    const invalidPeople = [
+    // ABSOLUTELY FORBIDDEN - These should NEVER be considered people
+    const strictlyForbiddenAsPersons = [
+      // Common UI/conversation words that get misclassified
+      'objects', 'thanks', 'thank you', 'welcome', 'hello', 'hi', 'goodbye', 'bye',
+      'please', 'yes', 'no', 'okay', 'ok', 'sure', 'sorry', 'excuse me',
+      
+      // Generic pronouns and words
       'this', 'that', 'these', 'those', 'he', 'she', 'they', 'we', 'you', 'me',
-      'him', 'her', 'them', 'us', 'according', 'says', 'by', 'from',
-      'good', 'bad', 'great', 'amazing', 'nice', 'the', 'and', 'or'
+      'him', 'her', 'them', 'us', 'according', 'says', 'by', 'from', 'with', 'about',
+      
+      // Descriptive words
+      'good', 'bad', 'great', 'amazing', 'nice', 'beautiful', 'wonderful', 'excellent',
+      'the', 'and', 'or', 'but', 'so', 'if', 'when', 'where', 'why', 'how', 'what',
+      
+      // Common nouns that might get capitalized
+      'world', 'earth', 'space', 'time', 'place', 'work', 'science', 'physics',
+      'research', 'study', 'analysis', 'theory', 'concept', 'idea', 'method',
+      'system', 'process', 'project', 'video', 'content', 'material', 'object',
+      
+      // Action words
+      'start', 'end', 'begin', 'finish', 'stop', 'go', 'come', 'see', 'look', 'watch',
+      'listen', 'hear', 'know', 'think', 'feel', 'want', 'need', 'get', 'give', 'take',
+      'make', 'do', 'use', 'try', 'help', 'show', 'tell', 'say', 'talk', 'speak'
     ];
     
-    if (invalidPeople.includes(personLower)) {
+    // Check against forbidden list
+    if (strictlyForbiddenAsPersons.includes(personLower)) {
+      console.log(`❌ Rejected invalid person: "${person}" (in forbidden list)`);
       return false;
     }
     
     // Must have at least one alphabetic character
     if (!/[a-zA-Z]/.test(person)) {
+      console.log(`❌ Rejected invalid person: "${person}" (no alphabetic characters)`);
       return false;
     }
     
     // Should start with capital letter (proper noun)
     if (!/^[A-Z]/.test(person)) {
+      console.log(`❌ Rejected invalid person: "${person}" (doesn't start with capital letter)`);
       return false;
     }
     
     // Should not contain numbers
     if (/\d/.test(person)) {
+      console.log(`❌ Rejected invalid person: "${person}" (contains numbers)`);
       return false;
     }
     
-    // Should not be all uppercase
+    // Should not be all uppercase (usually acronyms)
     if (person === person.toUpperCase() && person.length > 3) {
+      console.log(`❌ Rejected invalid person: "${person}" (all uppercase, likely acronym)`);
       return false;
     }
     
+    // Should be at least 2 characters and typically contain both letters and spaces (for full names)
+    if (person.length < 2) {
+      console.log(`❌ Rejected invalid person: "${person}" (too short)`);
+      return false;
+    }
+    
+    // Additional pattern checks for common false positives
+    if (/^(The|A|An)\s/i.test(person) || /\s(the|a|an)$/i.test(person)) {
+      console.log(`❌ Rejected invalid person: "${person}" (contains articles)`);
+      return false;
+    }
+    
+    console.log(`✅ Validated person: "${person}"`);
     return true;
   }
 
