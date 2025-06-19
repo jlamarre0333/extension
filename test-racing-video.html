@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Racing Video Citation Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .results {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        .citation {
+            background: white;
+            border-left: 4px solid #007bff;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .citation-type {
+            font-weight: bold;
+            color: #007bff;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        .citation-title {
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        .citation-description {
+            color: #666;
+            font-size: 14px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .video-url {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🏎️ Racing Video Citation Test</h1>
+        <p>Testing citation detection on the YouTube video: <strong>https://www.youtube.com/watch?v=T7PCuydUfxo</strong></p>
+        
+        <div class="video-url">
+            Target Video: https://www.youtube.com/watch?v=T7PCuydUfxo
+        </div>
+
+        <button onclick="testRacingVideo()">Test Racing Video Citations</button>
+        <button onclick="testWithSampleTranscript()">Test with Sample Racing Transcript</button>
+        <button onclick="testLLMAnalysis()">Test LLM Analysis</button>
+
+        <div id="results" class="results" style="display: none;">
+            <h3>Citation Results:</h3>
+            <div id="citations-container"></div>
+        </div>
+    </div>
+
+    <!-- Load the extension components -->
+    <script src="utils/helpers.js"></script>
+    <script src="utils/transcript-parser.js"></script>
+    <script src="content/citation-detector.js"></script>
+    <script src="llm-citation-detector.js"></script>
+
+    <script>
+        // Sample racing transcript data (simulating what we might get from the video)
+        const racingTranscriptSample = `
+            welcome to the Monaco Grand Prix circuit, this is one of the most challenging tracks in Formula 1
+            Lewis Hamilton is currently leading the race in his Mercedes, followed closely by Max Verstappen in the Red Bull
+            the Ferrari drivers Charles Leclerc and Carlos Sainz are fighting for third position
+            this track was designed by Anthony Noghès in 1929 and has been part of Formula 1 since 1950
+            the current lap record is held by Max Verstappen with a time of 1:12.909 set in 2023
+            Michael Schumacher won this race five times during his career with Ferrari
+            Ayrton Senna was known as the master of Monaco, winning here six times
+            the track passes by the famous Casino de Monte-Carlo and through the tunnel section
+            McLaren has had great success here with drivers like Alain Prost and Ayrton Senna
+            the safety car has been deployed due to debris on the track near Sainte Dévote corner
+            Red Bull Racing has dominated recent seasons with their RB19 and RB20 cars
+            the Haas F1 Team and Alpine F1 Team are battling in the midfield
+            this circuit is part of the Triple Crown of Motorsport along with Indianapolis 500 and 24 Hours of Le Mans
+            the race director is monitoring track conditions as light rain begins to fall
+            Pirelli has brought the soft, medium, and hard compound tires for this weekend
+            the DRS zone is on the main straight before turn one
+        `;
+
+        async function testRacingVideo() {
+            showResults();
+            const container = document.getElementById('citations-container');
+            container.innerHTML = '<p>🔄 Analyzing racing video content...</p>';
+
+            try {
+                // Create a comprehensive video metadata object
+                const videoData = {
+                    title: "Monaco Grand Prix 2024 - Race Highlights",
+                    channelName: "Formula 1",
+                    description: "Watch the best moments from the Monaco Grand Prix featuring Lewis Hamilton, Max Verstappen, Charles Leclerc and more F1 drivers on the famous Monaco circuit.",
+                    text: racingTranscriptSample,
+                    segments: parseTranscriptToSegments(racingTranscriptSample)
+                };
+
+                // Test with LLM if available
+                if (typeof LLMCitationDetector !== 'undefined') {
+                    const llmDetector = new LLMCitationDetector();
+                    llmDetector.setAPIKey('ollama', 'ollama');
+                    
+                    console.log('🤖 Testing with LLM detector...');
+                    const citations = await llmDetector.analyzeVideoContent(videoData);
+                    displayCitations(citations, 'LLM-Enhanced');
+                } else {
+                    console.log('⚠️ LLM detector not available, using standard detection');
+                    // Fallback to standard detection
+                    await testStandardDetection(videoData);
+                }
+            } catch (error) {
+                console.error('Error testing racing video:', error);
+                container.innerHTML = `<p>❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function testStandardDetection(videoData) {
+            // Simulate standard citation detection patterns for racing content
+            const citations = [];
+            const text = videoData.text;
+
+            // Detect F1 drivers
+            const driverPatterns = [
+                /Lewis Hamilton/gi,
+                /Max Verstappen/gi,
+                /Charles Leclerc/gi,
+                /Carlos Sainz/gi,
+                /Michael Schumacher/gi,
+                /Ayrton Senna/gi,
+                /Alain Prost/gi
+            ];
+
+            driverPatterns.forEach(pattern => {
+                const matches = text.match(pattern);
+                if (matches) {
+                    const driverName = matches[0];
+                    citations.push({
+                        title: driverName,
+                        type: 'person',
+                        description: `Formula 1 racing driver`,
+                        context: 'Racing',
+                        confidence: 0.9,
+                        timestamp: '0:00',
+                        searchLinks: [
+                            `https://en.wikipedia.org/wiki/${driverName.replace(' ', '_')}`,
+                            `https://www.formula1.com/en/drivers/${driverName.toLowerCase().replace(' ', '-')}.html`
+                        ]
+                    });
+                }
+            });
+
+            // Detect F1 teams
+            const teamPatterns = [
+                /Mercedes/gi,
+                /Red Bull/gi,
+                /Ferrari/gi,
+                /McLaren/gi,
+                /Haas F1 Team/gi,
+                /Alpine F1 Team/gi
+            ];
+
+            teamPatterns.forEach(pattern => {
+                const matches = text.match(pattern);
+                if (matches) {
+                    const teamName = matches[0];
+                    citations.push({
+                        title: teamName,
+                        type: 'company',
+                        description: `Formula 1 racing team`,
+                        context: 'Motorsport',
+                        confidence: 0.85,
+                        timestamp: '0:00'
+                    });
+                }
+            });
+
+            // Detect racing circuits and events
+            const racePatterns = [
+                /Monaco Grand Prix/gi,
+                /Casino de Monte-Carlo/gi,
+                /Triple Crown of Motorsport/gi,
+                /Indianapolis 500/gi,
+                /24 Hours of Le Mans/gi
+            ];
+
+            racePatterns.forEach(pattern => {
+                const matches = text.match(pattern);
+                if (matches) {
+                    const raceName = matches[0];
+                    citations.push({
+                        title: raceName,
+                        type: 'event',
+                        description: `Famous motorsport event or location`,
+                        context: 'Racing',
+                        confidence: 0.8,
+                        timestamp: '0:00'
+                    });
+                }
+            });
+
+            displayCitations(citations, 'Standard Detection');
+        }
+
+        function parseTranscriptToSegments(text) {
+            // Convert text to segments with timestamps
+            const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+            return sentences.map((sentence, index) => ({
+                text: sentence.trim(),
+                start: index * 10, // Fake timestamps
+                end: (index + 1) * 10
+            }));
+        }
+
+        async function testWithSampleTranscript() {
+            showResults();
+            const container = document.getElementById('citations-container');
+            container.innerHTML = '<p>🔄 Testing with sample racing transcript...</p>';
+
+            // This simulates what the extension would do when processing the actual video
+            await testRacingVideo();
+        }
+
+        async function testLLMAnalysis() {
+            showResults();
+            const container = document.getElementById('citations-container');
+            
+            // Check if Ollama is available
+            try {
+                const response = await fetch('http://localhost:11434/api/tags');
+                if (response.ok) {
+                    container.innerHTML = '<p>✅ Ollama is running! Testing LLM analysis...</p>';
+                    await testRacingVideo();
+                } else {
+                    container.innerHTML = '<p>⚠️ Ollama is not running. Install Ollama and run "ollama serve" to test LLM analysis.</p>';
+                }
+            } catch (error) {
+                container.innerHTML = `
+                    <p>⚠️ Ollama is not available. To enable LLM-enhanced citation detection:</p>
+                    <ol>
+                        <li>Install Ollama from https://ollama.ai</li>
+                        <li>Run: <code>ollama pull llama3.2</code></li>
+                        <li>Run: <code>ollama serve</code></li>
+                        <li>Test again</li>
+                    </ol>
+                    <p>Using fallback detection instead...</p>
+                `;
+                await testRacingVideo();
+            }
+        }
+
+        function displayCitations(citations, method) {
+            const container = document.getElementById('citations-container');
+            
+            if (!citations || citations.length === 0) {
+                container.innerHTML = `<p>No citations found with ${method}</p>`;
+                return;
+            }
+
+            let html = `<h4>${method} Results (${citations.length} citations found):</h4>`;
+            
+            citations.forEach((citation, index) => {
+                html += `
+                    <div class="citation">
+                        <div class="citation-type">${citation.type || 'Unknown'}</div>
+                        <div class="citation-title">${citation.title}</div>
+                        <div class="citation-description">${citation.description || 'No description'}</div>
+                        ${citation.confidence ? `<div style="font-size: 12px; color: #666;">Confidence: ${(citation.confidence * 100).toFixed(0)}%</div>` : ''}
+                        ${citation.timestamp ? `<div style="font-size: 12px; color: #666;">Timestamp: ${citation.timestamp}</div>` : ''}
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function showResults() {
+            document.getElementById('results').style.display = 'block';
+        }
+
+        // Log that the test is ready
+        console.log('🏎️ Racing video citation test ready!');
+        console.log('Click the buttons above to test citation detection for racing content.');
+    </script>
+</body>
+</html> 

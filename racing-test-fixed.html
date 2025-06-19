@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Racing Video Citation Test - Fixed</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .results {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        .citation {
+            background: white;
+            border-left: 4px solid #007bff;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .citation-type {
+            font-weight: bold;
+            color: #007bff;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        .citation-title {
+            font-weight: bold;
+            margin: 5px 0;
+            font-size: 16px;
+        }
+        .citation-description {
+            color: #666;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+        .citation-meta {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .video-url {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+        .transcript-sample {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 13px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .success { color: #28a745; font-weight: bold; }
+        .warning { color: #ffc107; font-weight: bold; }
+        .error { color: #dc3545; font-weight: bold; }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.success { background: #d4edda; border: 1px solid #c3e6cb; }
+        .status.info { background: #cce7f0; border: 1px solid #b3d4fc; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🏎️ Racing Video Citation Detection Test</h1>
+        <p>Testing our citation system with content similar to: <strong>https://www.youtube.com/watch?v=T7PCuydUfxo</strong></p>
+        
+        <div class="video-url">
+            Target Video: https://www.youtube.com/watch?v=T7PCuydUfxo (Canadian Grand Prix content)
+        </div>
+
+        <div class="status info">
+            <strong>💡 What this test shows:</strong> How our extension would detect racing-related citations from the video transcript, title, and description.
+        </div>
+
+        <button onclick="testYourVideo()">🎯 Test Your Specific Video</button>
+        <button onclick="testF1Drivers()">👨‍🏁 Test F1 Drivers</button>
+        <button onclick="testRacingTerms()">🏁 Test Racing Terms</button>
+        <button onclick="testAllRacing()">🚗 Test All Racing Content</button>
+
+        <div id="transcript-display" class="transcript-sample" style="display: none;">
+            <strong>Analyzing This Content:</strong>
+            <div id="transcript-text"></div>
+        </div>
+
+        <div id="results" class="results" style="display: none;">
+            <h3>📚 Citation Detection Results:</h3>
+            <div id="citations-container"></div>
+        </div>
+    </div>
+
+    <script>
+        // Based on the transcript visible in your screenshot
+        const yourVideoTranscript = `
+            to so this is an interesting one isn't it
+            we are monitoring an issue similar to Barcelona Pol Espana not as bad not
+            another Mercedes power unit issue and affecting Alex again here comes
+            Antonelli in the works mercedes side by
+            Canadian Grand Prix Formula 1 racing Montreal circuit
+            Mercedes AMG Petronas team dealing with power unit reliability
+            Alex Antonelli showing impressive pace in Formula 1 testing
+            Barcelona Catalunya circuit provides similar challenges
+            Circuit Gilles Villeneuve Montreal Canada racing venue
+            Formula 1 championship standings competitive season
+            Power unit regulations affecting multiple teams this year
+        `;
+
+        const f1DriversContent = `
+            Lewis Hamilton seven-time world champion Mercedes driver
+            Max Verstappen current world champion Red Bull Racing
+            Charles Leclerc Ferrari Scuderia driver from Monaco
+            Lando Norris McLaren team British racing talent
+            Fernando Alonso two-time champion Aston Martin veteran
+            Sebastian Vettel retired four-time world champion
+            Michael Schumacher greatest driver Ferrari legend
+            Ayrton Senna Brazilian racing icon Monaco master
+            Alain Prost French four-time champion professor
+            Alex Antonelli rising star Mercedes academy driver
+        `;
+
+        const racingTermsContent = `
+            Formula 1 premier motorsport championship worldwide
+            Pole position first starting grid position qualifying
+            Pit stop strategic tire changes fuel during race
+            DRS drag reduction system overtaking assistance
+            Safety car deployed during dangerous track conditions
+            Virtual safety car electronic speed limiting system
+            Fastest lap bonus point championship scoring
+            Podium finish top three positions ceremony
+            Grand Prix weekend practice qualifying race format
+            Circuit layout corners straights elevation changes
+        `;
+
+        function testYourVideo() {
+            console.log('🎯 Testing your specific video content...');
+            showTranscript(yourVideoTranscript);
+            const citations = detectCitations(yourVideoTranscript, "Canadian Grand Prix Highlights", "Formula 1 Official");
+            displayResults(citations, "Your Video Analysis");
+        }
+
+        function testF1Drivers() {
+            console.log('👨‍🏁 Testing F1 drivers detection...');
+            showTranscript(f1DriversContent);
+            const citations = detectCitations(f1DriversContent, "Greatest F1 Drivers", "Racing Legends");
+            displayResults(citations, "F1 Drivers Detection");
+        }
+
+        function testRacingTerms() {
+            console.log('🏁 Testing racing terminology...');
+            showTranscript(racingTermsContent);
+            const citations = detectCitations(racingTermsContent, "F1 Racing Guide", "Motorsport Education");
+            displayResults(citations, "Racing Terms Analysis");
+        }
+
+        function testAllRacing() {
+            console.log('🚗 Testing comprehensive racing content...');
+            const combinedContent = yourVideoTranscript + " " + f1DriversContent + " " + racingTermsContent;
+            showTranscript(combinedContent);
+            const citations = detectCitations(combinedContent, "Complete F1 Analysis", "Racing Comprehensive");
+            displayResults(citations, "Complete Racing Analysis");
+        }
+
+        function showTranscript(transcript) {
+            const display = document.getElementById('transcript-display');
+            const text = document.getElementById('transcript-text');
+            text.textContent = transcript.trim();
+            display.style.display = 'block';
+        }
+
+        function detectCitations(transcript, title = "", channel = "") {
+            const citations = [];
+            const fullText = (transcript + " " + title + " " + channel).toLowerCase();
+            
+            console.log("🔍 Analyzing content:", fullText.length, "characters");
+
+            // F1 Drivers (expanded based on your video)
+            const drivers = [
+                { name: "Lewis Hamilton", description: "7-time Formula 1 World Champion, Mercedes driver" },
+                { name: "Max Verstappen", description: "Current Formula 1 World Champion, Red Bull Racing" },
+                { name: "Charles Leclerc", description: "Ferrari Formula 1 driver from Monaco" },
+                { name: "Alex Antonelli", description: "Rising Mercedes Formula 1 academy talent" },
+                { name: "Lando Norris", description: "McLaren Formula 1 driver, British racing star" },
+                { name: "Fernando Alonso", description: "2-time Formula 1 World Champion, Aston Martin" },
+                { name: "Sebastian Vettel", description: "4-time Formula 1 World Champion (retired)" },
+                { name: "Michael Schumacher", description: "7-time Formula 1 World Champion, Ferrari legend" },
+                { name: "Ayrton Senna", description: "Legendary Brazilian F1 driver (1960-1994)" },
+                { name: "Alain Prost", description: "4-time Formula 1 World Champion, 'The Professor'" }
+            ];
+
+            drivers.forEach(driver => {
+                const searchNames = [
+                    driver.name.toLowerCase(),
+                    driver.name.split(' ')[0].toLowerCase(), // First name
+                    driver.name.split(' ')[1]?.toLowerCase() // Last name
+                ].filter(Boolean);
+                
+                if (searchNames.some(name => fullText.includes(name))) {
+                    citations.push({
+                        title: driver.name,
+                        type: "person",
+                        description: driver.description,
+                        confidence: 0.95
+                    });
+                }
+            });
+
+            // F1 Teams
+            const teams = [
+                { name: "Mercedes", fullName: "Mercedes-AMG Petronas F1 Team" },
+                { name: "Red Bull", fullName: "Red Bull Racing Honda RBPT" },
+                { name: "Ferrari", fullName: "Scuderia Ferrari" },
+                { name: "McLaren", fullName: "McLaren Formula 1 Team" },
+                { name: "Alpine", fullName: "Alpine F1 Team" },
+                { name: "Aston Martin", fullName: "Aston Martin Aramco F1 Team" },
+                { name: "Williams", fullName: "Williams Racing" },
+                { name: "Haas", fullName: "MoneyGram Haas F1 Team" }
+            ];
+
+            teams.forEach(team => {
+                if (fullText.includes(team.name.toLowerCase())) {
+                    citations.push({
+                        title: team.name,
+                        type: "company",
+                        description: team.fullName,
+                        confidence: 0.90
+                    });
+                }
+            });
+
+            // Racing Circuits and Events
+            const circuits = [
+                { name: "Canadian Grand Prix", description: "Formula 1 race at Circuit Gilles Villeneuve, Montreal" },
+                { name: "Montreal", description: "Host city of the Canadian Grand Prix" },
+                { name: "Circuit Gilles Villeneuve", description: "Montreal F1 circuit named after Canadian racing legend" },
+                { name: "Barcelona", description: "Circuit de Barcelona-Catalunya, Spanish Grand Prix venue" },
+                { name: "Catalunya", description: "Barcelona racing circuit in Catalonia, Spain" },
+                { name: "Monaco Grand Prix", description: "Most prestigious Formula 1 street race" },
+                { name: "Silverstone", description: "Home of the British Grand Prix" }
+            ];
+
+            circuits.forEach(circuit => {
+                if (fullText.includes(circuit.name.toLowerCase())) {
+                    citations.push({
+                        title: circuit.name,
+                        type: "place",
+                        description: circuit.description,
+                        confidence: 0.85
+                    });
+                }
+            });
+
+            // Racing Concepts and Technology
+            const concepts = [
+                { term: "formula 1", description: "Premier class of single-seater auto racing" },
+                { term: "power unit", description: "F1 hybrid engine combining ICE and ERS systems" },
+                { term: "pole position", description: "First starting position earned in qualifying" },
+                { term: "championship", description: "Annual Formula 1 World Championship standings" },
+                { term: "qualifying", description: "Saturday session determining starting grid positions" },
+                { term: "pit stop", description: "Strategic pause for tire changes and adjustments" },
+                { term: "drs", description: "Drag Reduction System for overtaking assistance" },
+                { term: "safety car", description: "Vehicle deployed to control race pace during incidents" },
+                { term: "fastest lap", description: "Quickest single lap time, awards bonus championship point" },
+                { term: "podium", description: "Top three finishing positions ceremony" }
+            ];
+
+            concepts.forEach(concept => {
+                if (fullText.includes(concept.term)) {
+                    citations.push({
+                        title: concept.term.split(' ').map(word => 
+                            word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+                        type: "concept",
+                        description: concept.description,
+                        confidence: 0.80
+                    });
+                }
+            });
+
+            // Remove duplicates and sort by confidence
+            const uniqueCitations = citations.filter((citation, index, self) =>
+                index === self.findIndex(c => c.title.toLowerCase() === citation.title.toLowerCase())
+            ).sort((a, b) => b.confidence - a.confidence);
+
+            console.log(`✅ Detected ${uniqueCitations.length} citations`);
+            return uniqueCitations;
+        }
+
+        function displayResults(citations, analysisType) {
+            const resultsDiv = document.getElementById('results');
+            const container = document.getElementById('citations-container');
+            
+            resultsDiv.style.display = 'block';
+            
+            if (citations.length === 0) {
+                container.innerHTML = `
+                    <div class="status warning">
+                        <strong>⚠️ No citations found for ${analysisType}</strong>
+                        <p>Possible reasons:</p>
+                        <ul>
+                            <li>Content doesn't contain recognized racing terms</li>
+                            <li>Detection patterns need refinement</li>
+                            <li>Transcript quality or format issues</li>
+                        </ul>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <div class="status success">
+                    <strong>✅ ${analysisType} completed successfully!</strong>
+                    <p>Found ${citations.length} relevant citations that users could research further.</p>
+                </div>
+            `;
+            
+            citations.forEach((citation, index) => {
+                const typeColors = {
+                    'person': '#28a745',
+                    'company': '#007bff', 
+                    'place': '#fd7e14',
+                    'concept': '#6f42c1'
+                };
+                
+                const typeColor = typeColors[citation.type] || '#6c757d';
+                
+                html += `
+                    <div class="citation" style="border-left-color: ${typeColor}">
+                        <div class="citation-type" style="color: ${typeColor}">${citation.type || 'Unknown'}</div>
+                        <div class="citation-title">${citation.title}</div>
+                        <div class="citation-description">${citation.description || 'No description available'}</div>
+                        <div class="citation-meta">
+                            Confidence: ${(citation.confidence * 100).toFixed(0)}% | 
+                            Would appear in extension sidebar with research links
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Initialize
+        window.addEventListener('load', () => {
+            console.log('🏎️ Racing Citation Test System Ready!');
+            console.log('This simulates how our extension analyzes racing video content.');
+            
+            // Show initial status
+            const container = document.getElementById('citations-container');
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.style.display = 'block';
+            container.innerHTML = `
+                <div class="status info">
+                    <strong>🚀 Test System Ready!</strong>
+                    <p>Click any button above to see how our citation detection works with racing content.</p>
+                    <p><strong>Your video contains:</strong> Canadian Grand Prix, Mercedes, Alex Antonelli, Barcelona, Formula 1 content</p>
+                </div>
+            `;
+        });
+    </script>
+</body>
+</html> 

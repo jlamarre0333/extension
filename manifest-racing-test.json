@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Racing Citation Test",
+  "version": "1.0.0",
+  "description": "Test racing video citation detection",
+  
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  
+  "host_permissions": [
+    "https://www.youtube.com/*"
+  ],
+  
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["racing-content-test.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Racing Citation Test"
+  }
+} 

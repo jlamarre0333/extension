@@ -40,18 +40,32 @@ class LLMCitationDetector {
       fullText = videoData.text;
       transcriptSegments = videoData.segments || []; // Store segments for timestamp matching
       
-      // Extract video metadata with better selectors
-      videoTitle = document.querySelector('h1[class*="title"] yt-formatted-string, #title h1, .title.style-scope.ytd-video-primary-info-renderer')?.textContent?.trim() 
+      // Enhanced video metadata extraction with multiple fallback strategies
+      videoTitle = document.querySelector('h1.ytd-watch-metadata yt-formatted-string')?.textContent?.trim() 
+                  || document.querySelector('h1[class*="title"] yt-formatted-string')?.textContent?.trim()
+                  || document.querySelector('#title h1')?.textContent?.trim()
+                  || document.querySelector('.title.style-scope.ytd-video-primary-info-renderer')?.textContent?.trim()
                   || document.querySelector('h1')?.textContent?.trim() 
                   || 'Unknown Video';
       
-      channelName = document.querySelector('#channel-name a, #channel-name yt-formatted-string, .owner-sub-count, .ytd-channel-name a')?.textContent?.trim() 
+      channelName = document.querySelector('#owner #channel-name a')?.textContent?.trim()
+                   || document.querySelector('#channel-name a')?.textContent?.trim() 
+                   || document.querySelector('#channel-name yt-formatted-string')?.textContent?.trim()
+                   || document.querySelector('.ytd-channel-name a')?.textContent?.trim()
                    || document.querySelector('[class*="channel"]')?.textContent?.trim() 
                    || 'Unknown Channel';
       
-      videoDescription = document.querySelector('#description-text, #snippet-text, .content.style-scope.ytd-video-secondary-info-renderer')?.textContent?.trim() 
+      videoDescription = document.querySelector('#description-inline-expander #description-text')?.textContent?.trim()
+                        || document.querySelector('#description-text')?.textContent?.trim()
+                        || document.querySelector('#snippet-text')?.textContent?.trim() 
+                        || document.querySelector('.content.style-scope.ytd-video-secondary-info-renderer')?.textContent?.trim()
                         || document.querySelector('[class*="description"]')?.textContent?.trim() 
                         || '';
+      
+      // Clean up the extracted data
+      videoTitle = videoTitle.replace(/^\s*\|\s*/, '').trim(); // Remove leading pipe symbols
+      channelName = channelName.replace(/^@/, '').trim(); // Remove @ symbols from channel names
+      videoDescription = videoDescription.substring(0, 1000); // Limit description length for LLM
     } else {
       console.error('❌ Invalid video data provided:', videoData);
       fullText = '';
@@ -128,17 +142,19 @@ class LLMCitationDetector {
   }
 
   async getLLMTopicAnalysis(videoMetadata) {
-    if (!this.apiKey || this.provider !== 'ollama') {
-      return this.getMockTopicAnalysis(videoMetadata);
-    }
-
+    // Force LLM analysis for testing - always try Ollama first
+    console.log('🤖 Attempting LLM analysis...');
+    console.log(`🔧 API Key: ${this.apiKey ? 'Set' : 'Not set'}`);
+    console.log(`🔧 Provider: ${this.provider}`);
+    
+    // Always try LLM first, regardless of API key for local Ollama
     try {
       const maxTranscriptLength = 6000;
       const transcript = videoMetadata.transcript.length > maxTranscriptLength ? 
         videoMetadata.transcript.substring(0, maxTranscriptLength) + '...' : 
         videoMetadata.transcript;
       
-      const prompt = `You are an expert academic content analyzer specializing in precise, specific citation extraction. Your task is to identify ONLY highly specific, researchable items that students would want to look up.
+      const prompt = `You are a specialized academic content analyzer. Your task is to analyze the ACTUAL video transcript and extract specific, nuanced citations that are directly mentioned or discussed in the content.
 
 VIDEO METADATA:
 Title: "${videoMetadata.title}"
@@ -148,53 +164,41 @@ Description: "${videoMetadata.description}"
 TRANSCRIPT CONTENT (${transcript.length} characters):
 ${transcript}
 
-CRITICAL INSTRUCTIONS - READ CAREFULLY:
-1. ONLY extract items explicitly mentioned in the transcript content
-2. Be EXTREMELY SPECIFIC - avoid broad subject names at all costs
-3. Focus on proper nouns, specific theories, named concepts, and concrete entities
-4. When someone mentions a mathematical concept, extract the SPECIFIC concept name, not "mathematics" or "algebra"
-5. When discussing historical events, extract the SPECIFIC event name, not "history"
-6. Prefer named theories, specific people, exact places, and particular technologies
+ANALYSIS INSTRUCTIONS:
+1. CAREFULLY READ the transcript and identify what is ACTUALLY being discussed
+2. Extract SPECIFIC concepts, theories, people, places, or technologies mentioned by name
+3. Focus on NUANCED, SPECIFIC terms rather than broad categories
+4. Avoid generic subject names like "physics", "math", "science", "history"
+5. Only include items explicitly mentioned in the transcript text
+6. Look for proper nouns, named theories, specific equations, particular experiments, exact locations
 
-EXAMPLES OF WHAT TO EXTRACT (✅ GOOD):
-- "Complex numbers" (specific mathematical concept)
-- "Euler's identity" (specific mathematical formula)
-- "Albert Einstein" (specific person)
-- "Theory of relativity" (specific scientific theory)
-- "Fibonacci sequence" (specific mathematical sequence)
-- "CERN" (specific organization)
-- "Quadratic formula" (specific mathematical formula)
-- "Renaissance Italy" (specific time and place)
-- "Newton's laws of motion" (specific scientific laws)
-- "Pythagorean theorem" (specific mathematical theorem)
+CONTENT-AWARE EXTRACTION RULES:
+- If discussing Einstein's work → Extract "Einstein's theory of relativity" or "Einstein's mass-energy equivalence" NOT just "Einstein" or "physics"
+- If mentioning specific experiments → Extract "Double-slit experiment" or "Michelson-Morley experiment" NOT just "experiment"
+- If discussing mathematical concepts → Extract "Pythagorean theorem" or "Fibonacci sequence" NOT just "mathematics"
+- If talking about historical events → Extract "Manhattan Project" or "Apollo 11" NOT just "history" 
+- If covering biological processes → Extract "DNA replication" or "photosynthesis" NOT just "biology"
+- If explaining chemical reactions → Extract "oxidation-reduction" or "acid-base reactions" NOT just "chemistry"
 
-EXAMPLES OF WHAT NOT TO EXTRACT (❌ BAD):
-- "Mathematics" (too broad)
-- "Algebra" (too general)
-- "Geometry" (too general)  
-- "Physics" (too broad)
-- "Science" (too vague)
-- "History" (too general)
-- "Technology" (too vague)
-- "Research" (too generic)
-- "Mathematical concepts" (too broad)
-- "Scientific principles" (too vague)
+VIDEO TYPE DETECTION:
+- EDUCATIONAL/SCIENCE: Focus on specific theories, principles, scientists, experiments
+- TECHNOLOGY: Extract particular technologies, companies, innovations, not generic "tech"
+- HISTORICAL: Extract specific events, dates, people, places, not broad periods
+- DOCUMENTARY: Extract specific subjects, locations, phenomena being documented
+- RACING/SPORTS: Extract specific events, teams, athletes, venues, not just "racing"
 
-SPECIFIC FILTERING RULES:
-- If transcript mentions "imaginary numbers", extract "Imaginary numbers" NOT "algebra" or "mathematics"
-- If transcript discusses "quadratic equations", extract "Quadratic equations" NOT "algebra"
-- If transcript mentions "calculus", extract "Calculus" (it's specific enough) but NOT "mathematics"
-- If transcript discusses "World War II", extract "World War II" NOT "history"
-- If transcript mentions "quantum mechanics", extract "Quantum mechanics" NOT "physics"
+QUALITY STANDARDS:
+- Each citation must be RESEARCHABLE and SPECIFIC
+- Must appear in the actual transcript content
+- Prefer compound terms over single words
+- Focus on what makes this video unique, not generic topics
+- Maximum 8 high-quality citations per video
+- Each item should lead to specific, educational information
 
-QUALITY REQUIREMENTS:
-- Each extracted item must be something a student could specifically research
-- Prefer multi-word specific terms over single broad words
-- Only include items that appear in the actual transcript text
-- Maximum 5-8 high-quality citations - better fewer accurate ones than many vague ones
-- Each citation should be searchable and lead to specific information
+RESPONSE REQUIREMENTS:
+Analyze the transcript content and determine what specific topics are actually being discussed. Extract only the most relevant, specific, and educational items that appear in the text.
 
-Please analyze the transcript and respond with accurate JSON:
+Please respond with accurate JSON:
 {
   "summary": "Specific topics covered in the video based on transcript",
   "videoType": "travel|educational|technology|business|entertainment|news|science|history|other",
@@ -224,6 +228,7 @@ Please analyze the transcript and respond with accurate JSON:
       
     } catch (error) {
       console.error('❌ LLM API error:', error);
+      console.log('🔄 Falling back to mock analysis due to LLM error');
       return this.getMockTopicAnalysis(videoMetadata);
     }
   }
@@ -333,6 +338,12 @@ Please analyze the transcript and respond with accurate JSON:
   getMockTopicAnalysis(videoMetadata) {
     console.log('🔄 Using mock analysis for testing...');
     const text = videoMetadata.transcript.toLowerCase();
+    const title = videoMetadata.title.toLowerCase();
+    const channel = videoMetadata.channelName.toLowerCase();
+    
+    console.log(`📄 Mock analysis - Title: "${title}"`);
+    console.log(`📄 Mock analysis - Channel: "${channel}"`);
+    console.log(`📄 Mock analysis - Transcript sample: "${text.substring(0, 200)}..."`);
     
     const mockAnalysis = {
       summary: `This video covers topics related to ${videoMetadata.title}`,
@@ -349,25 +360,64 @@ Please analyze the transcript and respond with accurate JSON:
       citationWorthy: []
     };
 
-    // Simple keyword detection for mock
-    const keywords = {
-      places: ['malta', 'japan', 'china', 'america', 'london', 'paris'],
-      people: ['einstein', 'jobs', 'newton', 'curie', 'tesla'],
-      companies: ['apple', 'google', 'microsoft', 'amazon'],
-      technologies: ['ai', 'blockchain', 'quantum', 'neural'],
-      historicalEvents: ['world war', 'renaissance', 'revolution'],
-      concepts: ['relativity', 'evolution', 'democracy', 'capitalism']
+    // Enhanced educational keywords with more comprehensive coverage
+    const educationalKeywords = {
+      people: ['einstein', 'newton', 'curie', 'tesla', 'galileo', 'faraday', 'maxwell', 'planck', 'bohr', 'feynman', 'hawking', 'darwin', 'mendel'],
+      technologies: ['electricity', 'light', 'electron', 'laser', 'quantum', 'computer', 'algorithm', 'dna', 'microscope', 'telescope'],
+      concepts: ['relativity', 'gravity', 'energy', 'momentum', 'velocity', 'acceleration', 'force', 'mass', 'time', 'space', 'quantum mechanics', 'wave-particle duality', 'uncertainty principle', 'electromagnetic', 'photon', 'atom', 'molecule', 'evolution', 'genetics', 'thermodynamics', 'entropy'],
+      physics_terms: ['spacetime', 'black hole', 'event horizon', 'speed of light', 'general relativity', 'special relativity', 'quantum field theory', 'particle physics', 'electromagnetic radiation'],
+      math_concepts: ['calculus', 'algebra', 'geometry', 'trigonometry', 'differential equations', 'probability', 'statistics', 'number theory'],
+      biology_terms: ['cell', 'dna', 'rna', 'protein', 'enzyme', 'evolution', 'natural selection', 'genetics', 'chromosome', 'gene'],
+      chemistry_terms: ['molecule', 'atom', 'element', 'compound', 'reaction', 'periodic table', 'electron', 'proton', 'neutron']
     };
 
-    for (const [category, terms] of Object.entries(keywords)) {
-      for (const term of terms) {
-        if (text.includes(term)) {
-          mockAnalysis[category].push(term);
-          mockAnalysis.citationWorthy.push(term);
+    // Content-aware analysis - look for specific compound terms first
+    const compoundTerms = [
+      { phrase: 'theory of relativity', citation: 'Theory of Relativity', category: 'concepts', confidence: 0.95 },
+      { phrase: 'quantum mechanics', citation: 'Quantum Mechanics', category: 'concepts', confidence: 0.95 },
+      { phrase: 'speed of light', citation: 'Speed of Light', category: 'concepts', confidence: 0.93 },
+      { phrase: 'black hole', citation: 'Black Holes', category: 'concepts', confidence: 0.92 },
+      { phrase: 'general relativity', citation: 'General Relativity', category: 'concepts', confidence: 0.94 },
+      { phrase: 'special relativity', citation: 'Special Relativity', category: 'concepts', confidence: 0.94 },
+      { phrase: 'electromagnetic radiation', citation: 'Electromagnetic Radiation', category: 'concepts', confidence: 0.91 },
+      { phrase: 'wave-particle duality', citation: 'Wave-Particle Duality', category: 'concepts', confidence: 0.93 },
+      { phrase: 'uncertainty principle', citation: 'Heisenberg Uncertainty Principle', category: 'concepts', confidence: 0.92 },
+      { phrase: 'double-slit experiment', citation: 'Double-Slit Experiment', category: 'concepts', confidence: 0.93 },
+      { phrase: 'albert einstein', citation: 'Albert Einstein', category: 'people', confidence: 0.96 },
+      { phrase: 'isaac newton', citation: 'Isaac Newton', category: 'people', confidence: 0.96 },
+      { phrase: 'marie curie', citation: 'Marie Curie', category: 'people', confidence: 0.95 },
+      { phrase: 'nikola tesla', citation: 'Nikola Tesla', category: 'people', confidence: 0.94 }
+    ];
+
+    // First pass: Look for compound terms (higher priority)
+    for (const term of compoundTerms) {
+      if (text.includes(term.phrase)) {
+        console.log(`✅ Found compound term: "${term.phrase}" → "${term.citation}"`);
+        if (!mockAnalysis[term.category].includes(term.citation)) {
+          mockAnalysis[term.category].push(term.citation);
+          mockAnalysis.citationWorthy.push(term.citation);
         }
       }
     }
 
+    // Second pass: Only add simple terms if we don't have many citations yet
+    if (mockAnalysis.citationWorthy.length < 5) {
+      for (const [category, terms] of Object.entries(educationalKeywords)) {
+        for (const term of terms) {
+          if (text.includes(term) && mockAnalysis.citationWorthy.length < 8) {
+            // Make sure we don't duplicate compound terms
+            const termCapitalized = term.charAt(0).toUpperCase() + term.slice(1);
+            if (!mockAnalysis.citationWorthy.some(existing => existing.toLowerCase().includes(term))) {
+              console.log(`✅ Found simple term: "${term}" in category: ${category}`);
+              mockAnalysis[category].push(termCapitalized);
+              mockAnalysis.citationWorthy.push(termCapitalized);
+            }
+          }
+        }
+      }
+    }
+
+    console.log(`📊 Mock analysis generated ${mockAnalysis.citationWorthy.length} citations:`, mockAnalysis.citationWorthy);
     return mockAnalysis;
   }
 
@@ -976,7 +1026,9 @@ Please analyze the transcript and respond with accurate JSON:
       computer_science: /\b(programming|software|algorithm|data|structure|computer|coding|ai|artificial|intelligence|machine|learning)\b/g,
       history: /\b(history|historical|ancient|medieval|renaissance|revolution|war|empire|civilization|century|era|period)\b/g,
       economics: /\b(economics|economy|market|finance|business|trade|money|investment|capitalism|socialism|inflation)\b/g,
-      philosophy: /\b(philosophy|ethics|logic|metaphysics|epistemology|consciousness|existence|meaning|morality|truth)\b/g
+      philosophy: /\b(philosophy|ethics|logic|metaphysics|epistemology|consciousness|existence|meaning|morality|truth)\b/g,
+      racing: /\b(formula|f1|grand prix|racing|motorsport|circuit|driver|team|pole position|qualifying|championship|mercedes|ferrari|red bull|mclaren|hamilton|verstappen|leclerc|antonelli)\b/g,
+      sports: /\b(sports|athlete|championship|tournament|competition|olympic|football|basketball|soccer|tennis|golf|swimming|running|cycling|boxing)\b/g
     };
     
     for (const [field, pattern] of Object.entries(subjectPatterns)) {
@@ -1101,6 +1153,18 @@ Please analyze the transcript and respond with accurate JSON:
         type: 'topic',
         confidence: 0.87,
         description: 'Philosophical theories and ethical frameworks'
+      },
+      racing: {
+        title: 'Formula 1 Racing',
+        type: 'sport',
+        confidence: 0.94,
+        description: 'Formula 1 racing, drivers, teams, and motorsport'
+      },
+      sports: {
+        title: 'Sports & Athletics',
+        type: 'sport',
+        confidence: 0.90,
+        description: 'Sports, athletics, and competitive events'
       }
     };
     
@@ -1184,6 +1248,28 @@ Please analyze the transcript and respond with accurate JSON:
         { terms: ['big bang', 'universe', 'cosmology'], title: 'Big Bang Theory', type: 'topic', confidence: 0.92 },
         { terms: ['artificial intelligence', 'ai', 'machine learning'], title: 'Artificial Intelligence', type: 'technology', confidence: 0.94 },
         { terms: ['climate change', 'global warming', 'greenhouse'], title: 'Climate Change', type: 'topic', confidence: 0.94 }
+      ],
+      
+      // Physics and Science  
+      physics: [
+        { terms: ['einstein', 'albert einstein'], title: 'Albert Einstein', type: 'person', confidence: 0.96 },
+        { terms: ['newton', 'isaac newton'], title: 'Isaac Newton', type: 'person', confidence: 0.96 },
+        { terms: ['relativity', 'theory of relativity', 'general relativity'], title: 'Theory of Relativity', type: 'topic', confidence: 0.95 },
+        { terms: ['quantum mechanics', 'quantum physics'], title: 'Quantum Mechanics', type: 'topic', confidence: 0.95 },
+        { terms: ['gravity', 'gravitational force'], title: 'Gravity', type: 'topic', confidence: 0.93 },
+        { terms: ['light', 'speed of light', 'electromagnetic radiation'], title: 'Light and Electromagnetic Radiation', type: 'topic', confidence: 0.92 },
+        { terms: ['energy', 'conservation of energy'], title: 'Energy Conservation', type: 'topic', confidence: 0.91 },
+        { terms: ['spacetime', 'space-time'], title: 'Spacetime', type: 'topic', confidence: 0.94 },
+        { terms: ['black hole', 'event horizon'], title: 'Black Holes', type: 'topic', confidence: 0.93 },
+        { terms: ['particle physics', 'elementary particles'], title: 'Particle Physics', type: 'topic', confidence: 0.92 },
+        { terms: ['wave-particle duality'], title: 'Wave-Particle Duality', type: 'topic', confidence: 0.93 },
+        { terms: ['uncertainty principle', 'heisenberg'], title: 'Heisenberg Uncertainty Principle', type: 'topic', confidence: 0.92 }
+      ],
+      
+      // Racing and motorsport (only when clearly racing content)
+      racing: [
+        { terms: ['formula 1', 'f1', 'grand prix'], title: 'Formula 1', type: 'sport', confidence: 0.95 },
+        { terms: ['montreal', 'canadian grand prix', 'gilles villeneuve'], title: 'Canadian Grand Prix', type: 'event', confidence: 0.96 }
       ],
       
       // Historical figures and scientists
@@ -1279,6 +1365,7 @@ Please analyze the transcript and respond with accurate JSON:
       const physicsKeywords = ['physics', 'quantum', 'relativity', 'mechanics', 'particle'];
       const historyKeywords = ['history', 'historical', 'ancient', 'civilization', 'empire', 'war'];
       const techKeywords = ['technology', 'programming', 'software', 'algorithm', 'ai', 'computer'];
+      const racingKeywords = ['racing', 'formula', 'grand prix', 'montreal', 'f1', 'motorsport', 'circuit', 'braking', 'tire', 'compound'];
       
       if (physicsKeywords.some(kw => titleWords.includes(kw)) && 
           physicsKeywords.some(kw => textWords.includes(kw))) {
@@ -1327,6 +1414,22 @@ Please analyze the transcript and respond with accurate JSON:
           verified: true
         });
       }
+      
+      if (racingKeywords.some(kw => titleWords.includes(kw)) && 
+          racingKeywords.some(kw => textWords.includes(kw))) {
+        citations.push({
+          title: `${videoTitle.split(' ').slice(0, 3).join(' ')} - Racing Analysis`,
+          type: 'sport',
+          confidence: 0.85,
+          source: 'racing_validated',
+          timestamp: 0,
+          llmContext: `Racing content derived from motorsport video analysis`,
+          videoType: 'sports',
+          priority: 'high',
+          author: null,
+          verified: true
+        });
+      }
     }
     
     // Remove duplicates and sort by confidence
@@ -1340,6 +1443,8 @@ Please analyze the transcript and respond with accurate JSON:
   inferVideoType(text, title) {
     const combined = (text + ' ' + title).toLowerCase();
     
+    if (combined.includes('racing') || combined.includes('formula') || combined.includes('grand prix') || 
+        combined.includes('montreal') || combined.includes('f1') || combined.includes('motorsport')) return 'sports';
     if (combined.includes('science') || combined.includes('physics') || combined.includes('biology')) return 'educational';
     if (combined.includes('technology') || combined.includes('innovation') || combined.includes('tech')) return 'technology';
     if (combined.includes('history') || combined.includes('historical')) return 'educational';
@@ -5375,6 +5480,12 @@ function checkForVideoChange() {
 // Enhanced initialization with better SPA handling
 async function init() {
   console.log('🚀 Initializing Citation Cross-Reference...');
+  console.log('🔍 Current location check:', {
+    href: window.location.href,
+    pathname: window.location.pathname,
+    includes_watch: window.location.pathname.includes('/watch'),
+    search: window.location.search
+  });
   
   // Initialize detector first
   detector = new EnhancedCitationDetector();
@@ -5414,6 +5525,24 @@ async function init() {
   setInterval(checkForVideoChange, 1000);
   
   console.log('✅ Citation Cross-Reference initialized!');
+}
+
+// Add immediate debug logging
+console.log('🚀 Citation Cross-Reference extension loading...');
+console.log('🌐 Current URL:', window.location.href);
+console.log('🌐 Pathname:', window.location.pathname);
+
+// Test if we can access the page
+try {
+  console.log('🔍 Page title:', document.title);
+  console.log('🔍 DOM ready state:', document.readyState);
+  console.log('🔍 YouTube elements check:', {
+    hasVideo: !!document.querySelector('video'),
+    hasPlayer: !!document.querySelector('#movie_player'),
+    hasTitle: !!document.querySelector('h1[class*="title"]')
+  });
+} catch (error) {
+  console.error('❌ Error accessing page:', error);
 }
 
 // Start initialization

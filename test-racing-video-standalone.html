@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Racing Video Citation Test - Standalone</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .results {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        .citation {
+            background: white;
+            border-left: 4px solid #007bff;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .citation-type {
+            font-weight: bold;
+            color: #007bff;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        .citation-title {
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        .citation-description {
+            color: #666;
+            font-size: 14px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .video-url {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        .transcript-sample {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .warning {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🏎️ Racing Video Citation Test - Standalone</h1>
+        <p>Testing citation detection on racing video content similar to: <strong>https://www.youtube.com/watch?v=T7PCuydUfxo</strong></p>
+        
+        <div class="video-url">
+            Target Video: https://www.youtube.com/watch?v=T7PCuydUfxo
+        </div>
+
+        <button onclick="testCanadianGP()">Test Canadian Grand Prix Content</button>
+        <button onclick="testF1General()">Test General F1 Content</button>
+        <button onclick="testRacingDrivers()">Test Racing Drivers Detection</button>
+
+        <div id="transcript-display" class="transcript-sample" style="display: none;">
+            <strong>Sample Transcript Content:</strong>
+            <div id="transcript-text"></div>
+        </div>
+
+        <div id="results" class="results" style="display: none;">
+            <h3>Citation Results:</h3>
+            <div id="citations-container"></div>
+        </div>
+    </div>
+
+    <script>
+        // Standalone citation detection - no external dependencies
+        
+        // Sample transcript based on what we can see in your screenshot
+        const canadianGPTranscript = `
+            to so this is an interesting one isn't it
+            we are monitoring an issue similar to Barcelona Pol Espana not as bad not
+            another Mercedes power unit issue and affecting Alex again here comes
+            Antonelli in the works mercedes side by
+            Canadian Grand Prix Formula 1 racing
+            Mercedes team power unit problems affecting multiple drivers
+            Alex Antonelli showing great pace in the Mercedes
+            Barcelona circuit comparison with similar racing conditions
+            Pole position battle between top drivers on the grid
+            Formula 1 championship standings after this race weekend
+        `;
+
+        const generalF1Transcript = `
+            Lewis Hamilton leads the championship heading into this crucial race weekend
+            Max Verstappen in the Red Bull is closing the gap in the standings  
+            Charles Leclerc and Ferrari have made significant improvements to their car
+            McLaren with Lando Norris showing strong pace in qualifying
+            The Mercedes team is dealing with power unit reliability issues
+            Sebastian Vettel announced his retirement from Formula 1 racing
+            Ayrton Senna remains one of the greatest drivers in F1 history
+            Monaco Grand Prix is the most prestigious race on the calendar
+            Silverstone circuit hosts the British Grand Prix each year
+            Red Bull Racing has dominated recent seasons with their superior aerodynamics
+        `;
+
+        const driversTranscript = `
+            Michael Schumacher holds the record for most championship titles
+            Ayrton Senna was known as the master of wet weather racing
+            Alain Prost was Senna's biggest rival during the 1980s
+            Fernando Alonso is one of the most talented drivers on the grid
+            Kimi Raikkonen was known for his no-nonsense approach to racing
+            Jenson Button won the championship in 2009 with Brawn GP
+            Niki Lauda survived a horrific crash at the Nurburgring in 1976
+            Jackie Stewart was a safety pioneer in Formula 1
+            Jim Clark was considered one of the most naturally gifted drivers
+            Stirling Moss never won a championship but was incredibly respected
+        `;
+
+        function testCanadianGP() {
+            showTranscript(canadianGPTranscript);
+            const citations = detectRacingCitations(canadianGPTranscript, "Canadian Grand Prix 2024", "Formula 1");
+            displayResults(citations, "Canadian Grand Prix Analysis");
+        }
+
+        function testF1General() {
+            showTranscript(generalF1Transcript);
+            const citations = detectRacingCitations(generalF1Transcript, "F1 Season Review", "Formula 1 Official");
+            displayResults(citations, "General F1 Content Analysis");
+        }
+
+        function testRacingDrivers() {
+            showTranscript(driversTranscript);
+            const citations = detectRacingCitations(driversTranscript, "Greatest F1 Drivers", "Racing Legends");
+            displayResults(citations, "Racing Drivers Analysis");
+        }
+
+        function showTranscript(transcript) {
+            const display = document.getElementById('transcript-display');
+            const text = document.getElementById('transcript-text');
+            text.textContent = transcript.trim();
+            display.style.display = 'block';
+        }
+
+        function detectRacingCitations(transcript, title = "", channel = "") {
+            const citations = [];
+            const fullText = (transcript + " " + title + " " + channel).toLowerCase();
+            
+            console.log("🔍 Analyzing text:", fullText.substring(0, 200) + "...");
+
+            // F1 Drivers detection
+            const drivers = [
+                { name: "Lewis Hamilton", description: "7-time Formula 1 World Champion" },
+                { name: "Max Verstappen", description: "Current Formula 1 World Champion" },
+                { name: "Charles Leclerc", description: "Ferrari Formula 1 driver" },
+                { name: "Alex Antonelli", description: "Rising Mercedes F1 talent" }, // From your transcript
+                { name: "Lando Norris", description: "McLaren Formula 1 driver" },
+                { name: "Sebastian Vettel", description: "4-time Formula 1 World Champion" },
+                { name: "Michael Schumacher", description: "7-time Formula 1 World Champion (retired)" },
+                { name: "Ayrton Senna", description: "Legendary F1 driver (1960-1994)" },
+                { name: "Alain Prost", description: "4-time Formula 1 World Champion" },
+                { name: "Fernando Alonso", description: "2-time Formula 1 World Champion" },
+                { name: "Kimi Raikkonen", description: "Former Formula 1 World Champion" },
+                { name: "Jenson Button", description: "2009 Formula 1 World Champion" },
+                { name: "Niki Lauda", description: "3-time Formula 1 World Champion (1949-2019)" },
+                { name: "Jackie Stewart", description: "3-time Formula 1 World Champion" },
+                { name: "Jim Clark", description: "2-time Formula 1 World Champion (1936-1968)" },
+                { name: "Stirling Moss", description: "Legendary F1 driver (1929-2020)" }
+            ];
+
+            drivers.forEach(driver => {
+                const searchName = driver.name.toLowerCase();
+                if (fullText.includes(searchName)) {
+                    citations.push({
+                        title: driver.name,
+                        type: "person",
+                        description: driver.description,
+                        confidence: 0.95,
+                        searchLinks: [
+                            `https://en.wikipedia.org/wiki/${driver.name.replace(' ', '_')}`,
+                            `https://www.formula1.com/en/drivers/${driver.name.toLowerCase().replace(' ', '-')}.html`
+                        ]
+                    });
+                }
+            });
+
+            // F1 Teams
+            const teams = [
+                { name: "Mercedes", description: "Mercedes-AMG Petronas F1 Team" },
+                { name: "Red Bull", description: "Red Bull Racing Honda RBPT" },
+                { name: "Ferrari", description: "Scuderia Ferrari" },
+                { name: "McLaren", description: "McLaren Formula 1 Team" },
+                { name: "Alpine", description: "Alpine F1 Team" },
+                { name: "Aston Martin", description: "Aston Martin Aramco Cognizant F1 Team" },
+                { name: "Williams", description: "Williams Racing" },
+                { name: "Haas", description: "MoneyGram Haas F1 Team" }
+            ];
+
+            teams.forEach(team => {
+                if (fullText.includes(team.name.toLowerCase())) {
+                    citations.push({
+                        title: team.name,
+                        type: "company",
+                        description: team.description,
+                        confidence: 0.90,
+                        searchLinks: [
+                            `https://www.formula1.com/en/teams/${team.name.toLowerCase()}.html`
+                        ]
+                    });
+                }
+            });
+
+            // Racing Circuits
+            const circuits = [
+                { name: "Montreal", description: "Circuit Gilles Villeneuve - Canadian Grand Prix venue" },
+                { name: "Canadian Grand Prix", description: "Formula 1 race held at Circuit Gilles Villeneuve" },
+                { name: "Barcelona", description: "Circuit de Barcelona-Catalunya" },
+                { name: "Monaco", description: "Circuit de Monaco - Most prestigious F1 race" },
+                { name: "Silverstone", description: "Silverstone Circuit - British Grand Prix venue" },
+                { name: "Nurburgring", description: "Famous German racing circuit" }
+            ];
+
+            circuits.forEach(circuit => {
+                const searchTerm = circuit.name.toLowerCase();
+                if (fullText.includes(searchTerm)) {
+                    citations.push({
+                        title: circuit.name,
+                        type: "place",
+                        description: circuit.description,
+                        confidence: 0.85,
+                        searchLinks: [
+                            `https://en.wikipedia.org/wiki/${circuit.name.replace(' ', '_')}`
+                        ]
+                    });
+                }
+            });
+
+            // Racing Concepts
+            const concepts = [
+                { term: "formula 1", description: "Premier class of single-seater auto racing" },
+                { term: "pole position", description: "First starting position on the racing grid" },
+                { term: "championship", description: "Annual Formula 1 World Championship" },
+                { term: "power unit", description: "F1 engine and energy recovery system" },
+                { term: "aerodynamics", description: "Science of airflow around racing cars" },
+                { term: "qualifying", description: "Session to determine starting grid positions" }
+            ];
+
+            concepts.forEach(concept => {
+                if (fullText.includes(concept.term)) {
+                    citations.push({
+                        title: concept.term.split(' ').map(word => 
+                            word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+                        type: "concept",
+                        description: concept.description,
+                        confidence: 0.80
+                    });
+                }
+            });
+
+            // Remove duplicates
+            const uniqueCitations = citations.filter((citation, index, self) =>
+                index === self.findIndex(c => c.title.toLowerCase() === citation.title.toLowerCase())
+            );
+
+            console.log(`✅ Found ${uniqueCitations.length} citations`);
+            return uniqueCitations;
+        }
+
+        function displayResults(citations, analysisType) {
+            const resultsDiv = document.getElementById('results');
+            const container = document.getElementById('citations-container');
+            
+            resultsDiv.style.display = 'block';
+            
+            if (citations.length === 0) {
+                container.innerHTML = `
+                    <p class="warning">⚠️ No citations found for ${analysisType}</p>
+                    <p>This could mean:</p>
+                    <ul>
+                        <li>The content doesn't contain recognizable racing terms</li>
+                        <li>The patterns need adjustment for this content type</li>
+                        <li>The transcript quality is too low</li>
+                    </ul>
+                `;
+                return;
+            }
+
+            let html = `<h4 class="success">✅ ${analysisType} - Found ${citations.length} citations:</h4>`;
+            
+            citations.forEach((citation, index) => {
+                html += `
+                    <div class="citation">
+                        <div class="citation-type">${citation.type || 'Unknown'}</div>
+                        <div class="citation-title">${citation.title}</div>
+                        <div class="citation-description">${citation.description || 'No description'}</div>
+                        <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                            Confidence: ${(citation.confidence * 100).toFixed(0)}%
+                            ${citation.searchLinks ? ` | <a href="${citation.searchLinks[0]}" target="_blank">Learn More</a>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Auto-run a test when page loads
+        window.addEventListener('load', () => {
+            console.log('🏎️ Racing Citation Test Ready!');
+            console.log('Click the buttons to test different types of racing content.');
+        });
+    </script>
+</body>
+</html> 

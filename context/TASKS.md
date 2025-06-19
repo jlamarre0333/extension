@@ -1,6 +1,6 @@
 # Citation Cross-Reference Extension - Task Board
 
-## Doing
+## Doing  
 - [ ] Debug and fix timestamp extraction from YouTube transcript panel to resolve "Jump to 0:00" issue
 - [ ] Test timestamp matching accuracy with various YouTube videos with different transcript sources
 - [x] Make AI analysis more robust and consistent across all YouTube videos
@@ -90,6 +90,8 @@
 - [x] Set up automatic CORS proxy management for seamless LLM integration
 - [x] Enhance transcript processing pipeline to send complete data to Ollama for analysis
 - [x] Make AI analysis robust and consistent with retry logic and enhanced fallback system
+- [x] Add racing/sports citation detection as additional feature to existing working UI
+- [x] Enhance LLM prompts with racing-specific examples and filtering rules
 
 ## Backlog Ideas
 - [ ] Integration with note-taking apps (Notion, Obsidian)
