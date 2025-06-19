@@ -1,0 +1,31 @@
+# Environment variables and API keys
+.env
+.env.local
+.env.production
+**/api-keys.js
+**/config/secrets.js
+
+# Node modules
+node_modules/
+
+# Chrome extension temporary files
+*.crx
+*.pem
+
+# Logs
+*.log
+logs/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp 
