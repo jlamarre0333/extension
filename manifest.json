@@ -11,7 +11,7 @@
   "content_scripts": [
     {
       "matches": ["https://www.youtube.com/*"],
-      "js": ["working-content.js"],
+      "js": ["llm-config.js", "working-content.js"],
       "run_at": "document_idle"
     }
   ]

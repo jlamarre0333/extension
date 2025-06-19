@@ -544,7 +544,11 @@ Be specific and focus only on entities that are actually discussed in meaningful
 
   inferTypeFromContent(item, analysis) {
     // Try to infer type from which category the item appears in
-    const itemLower = item.toLowerCase();
+    // Ensure item is a string
+    const itemString = typeof item === 'string' ? item : 
+                      item?.title || item?.name || 
+                      JSON.stringify(item);
+    const itemLower = itemString.toLowerCase();
     
     if (analysis.places && analysis.places.some(p => p.toLowerCase() === itemLower)) {
       return 'place';
@@ -573,7 +577,11 @@ Be specific and focus only on entities that are actually discussed in meaningful
 
   verifyInText(item, text) {
     const textLower = text.toLowerCase();
-    const itemLower = item.toLowerCase();
+    // Ensure item is a string
+    const itemString = typeof item === 'string' ? item : 
+                      item?.title || item?.name || 
+                      JSON.stringify(item);
+    const itemLower = itemString.toLowerCase();
     return textLower.includes(itemLower);
   }
 
