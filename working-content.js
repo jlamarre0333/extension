@@ -5577,6 +5577,13 @@ async function analyzeCurrentVideo() {
   try {
     const transcriptData = await getVideoText();
     console.log('🎬 Transcript data received:', transcriptData);
+    
+    // Store transcript globally for search functionality
+    if (transcriptData && transcriptData.text) {
+      window.currentTranscriptForSearch = transcriptData.text;
+      console.log('💾 Transcript stored for search (length:', transcriptData.text.length, 'characters)');
+    }
+    
     if (transcriptData && transcriptData.text && transcriptData.text.length > 0) {
       console.log('📝 Analyzing transcript for citations...');
       
@@ -5736,7 +5743,121 @@ function updateCitationsUI(citations) {
     }).join('');
     
     citationsContainer.innerHTML = `
+      <style>
+        #citation-search-input {
+          background: white !important;
+          color: #333 !important;
+          border: 2px solid #d1d5db !important;
+        }
+        #citation-search-input:focus {
+          border-color: #667eea !important;
+          box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2) !important;
+          outline: none !important;
+        }
+      </style>
       <div style="padding: 16px;">
+        <!-- Search Box -->
+        <div style="
+          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+          border: 1px solid rgba(226, 232, 240, 0.8);
+          border-radius: 12px;
+          padding: 16px;
+          margin-bottom: 16px;
+        ">
+          <div style="
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+          ">
+            <span style="
+              font-size: 14px;
+              font-weight: 600;
+              color: #475569;
+              margin-right: 12px;
+            ">🔍 Search Transcript</span>
+            <button id="clear-citation-search" style="
+              background: none;
+              border: none;
+              color: #64748b;
+              font-size: 11px;
+              cursor: pointer;
+              text-decoration: underline;
+              padding: 0;
+            ">Clear</button>
+          </div>
+          
+          <div style="position: relative; background: white; border-radius: 8px; padding: 2px;">
+            <input 
+              type="text" 
+              id="citation-search-input" 
+              placeholder="Search for people, concepts, phrases..."
+              style="
+                width: calc(100% - 50px);
+                padding: 12px 16px;
+                border: 2px solid #d1d5db;
+                border-radius: 8px;
+                font-size: 14px;
+                background: white;
+                color: #333;
+                outline: none;
+                box-sizing: border-box;
+                font-family: Arial, sans-serif;
+                display: block;
+              "
+            />
+            <button 
+              id="manual-focus-btn"
+              onclick="document.getElementById('citation-search-input').focus(); console.log('Manual focus button clicked');"
+              style="
+                position: absolute;
+                right: 8px;
+                top: 50%;
+                transform: translateY(-50%);
+                background: #667eea;
+                color: white;
+                border: none;
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-size: 12px;
+                cursor: pointer;
+                font-weight: 600;
+              "
+            >
+              Focus
+            </button>
+            <div style="
+              position: absolute;
+              right: 12px;
+              top: 50%;
+              transform: translateY(-50%);
+              color: #9ca3af;
+              font-size: 16px;
+              pointer-events: none;
+            ">🔍</div>
+          </div>
+          
+          <div style="
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+          ">
+            <span style="font-size: 11px; color: #64748b; margin-right: 8px;">Quick search:</span>
+            ${generateQuickSearchButtons(citations).map(term => `
+              <button class="quick-search-btn" data-query="${term}" style="
+                background: rgba(102, 126, 234, 0.1);
+                color: #667eea;
+                border: none;
+                padding: 3px 8px;
+                border-radius: 6px;
+                font-size: 10px;
+                cursor: pointer;
+                transition: all 0.2s;
+              ">${term}</button>
+            `).join('')}
+          </div>
+        </div>
+        
         <div style="
           background: linear-gradient(135deg, #10b981 0%, #059669 100%);
           color: white;
@@ -5748,10 +5869,24 @@ function updateCitationsUI(citations) {
           <div style="font-weight: 600; margin-bottom: 8px;">✅ Citations Found: ${citations.length}</div>
           <div style="opacity: 0.9; font-size: 13px;">Smart analysis detected references, topics, and entities from this video</div>
         </div>
-        ${citationsHTML}
+        
+        <!-- Search Results Container -->
+        <div id="search-results-container" style="display: none; margin-bottom: 16px;"></div>
+        
+        <!-- Citations Container -->
+        <div id="citations-display-container">
+          ${citationsHTML}
+        </div>
       </div>
     `;
 
+    // Search functionality will be set up after DOM is ready
+
+    // Add search functionality with slight delay to ensure DOM is ready
+    setTimeout(() => {
+      setupCitationSearch(citations);
+    }, 100);
+    
     console.log('✅ Citations UI updated successfully!');
     
   } else {
@@ -5775,6 +5910,447 @@ function updateCitationsUI(citations) {
       </div>
     `;
   }
+}
+
+// Generate smart quick search buttons based on citations
+function generateQuickSearchButtons(citations) {
+  const terms = new Set();
+  
+  // Extract relevant terms from citations
+  citations.forEach(citation => {
+    if (citation.title) {
+      // Extract meaningful words from titles
+      const words = citation.title.toLowerCase().split(/\s+/).filter(word => 
+        word.length > 4 && 
+        !['this', 'that', 'with', 'from', 'have', 'they', 'were', 'been', 'said', 'what', 'your', 'when', 'how'].includes(word)
+      );
+      words.forEach(word => terms.add(word));
+    }
+    
+    if (citation.author) {
+      // Add author names
+      citation.author.split(/\s+/).forEach(name => {
+        if (name.length > 2) terms.add(name.toLowerCase());
+      });
+    }
+  });
+  
+  // Add common academic/scientific terms that might be mentioned
+  const commonTerms = ['theory', 'research', 'study', 'analysis', 'experiment', 'concept', 'principle', 'method'];
+  const videoTitle = document.querySelector('h1[class*="title"] yt-formatted-string, #title h1')?.textContent?.toLowerCase() || '';
+  
+  commonTerms.forEach(term => {
+    if (videoTitle.includes(term) || window.currentTranscriptForSearch?.toLowerCase().includes(term)) {
+      terms.add(term);
+    }
+  });
+  
+  // Convert to array and limit to 6 terms, prioritizing longer/more specific terms
+  const sortedTerms = Array.from(terms)
+    .filter(term => term.length > 3)
+    .sort((a, b) => b.length - a.length)
+    .slice(0, 6);
+  
+  // If we don't have enough specific terms, add some defaults
+  if (sortedTerms.length < 3) {
+    const defaults = ['theory', 'research', 'study', 'analysis'];
+    defaults.forEach(term => {
+      if (sortedTerms.length < 4 && !sortedTerms.includes(term)) {
+        sortedTerms.push(term);
+      }
+    });
+  }
+  
+  return sortedTerms.slice(0, 4); // Limit to 4 buttons to avoid crowding
+}
+
+// Setup citation search functionality
+function setupCitationSearch(citations) {
+  console.log('🔧 Setting up citation search functionality...');
+  
+  const searchInput = document.getElementById('citation-search-input');
+  const clearButton = document.getElementById('clear-citation-search');
+  const quickSearchButtons = document.querySelectorAll('.quick-search-btn');
+  const searchResultsContainer = document.getElementById('search-results-container');
+  const citationsDisplayContainer = document.getElementById('citations-display-container');
+
+  console.log('🔍 Search elements found:', {
+    searchInput: !!searchInput,
+    clearButton: !!clearButton,
+    quickSearchButtons: quickSearchButtons.length,
+    searchResultsContainer: !!searchResultsContainer,
+    citationsDisplayContainer: !!citationsDisplayContainer
+  });
+
+  if (!searchInput || !searchResultsContainer || !citationsDisplayContainer) {
+    console.warn('⚠️ Search elements not found - required elements missing');
+    console.log('Available elements in DOM:', {
+      'citation-search-input': document.getElementById('citation-search-input'),
+      'search-results-container': document.getElementById('search-results-container'),
+      'citations-display-container': document.getElementById('citations-display-container')
+    });
+    return;
+  }
+
+  // Store original transcript for searching
+  window.currentTranscriptForSearch = window.currentTranscriptForSearch || '';
+
+  // Search function
+  function performTranscriptSearch(query) {
+    if (!query.trim()) {
+      clearSearchResults();
+      return;
+    }
+
+    console.log('🔍 Searching transcript for:', query);
+    console.log('📝 Available transcript length:', window.currentTranscriptForSearch?.length || 0);
+    
+    // Search in transcript
+    const transcriptResults = searchInTranscript(query);
+    console.log('📊 Transcript search results:', transcriptResults.length);
+    
+    // Filter citations that match the search
+    const matchingCitations = filterCitationsBySearch(citations, query);
+    console.log('📋 Matching citations:', matchingCitations.length);
+    
+    displaySearchResults(query, transcriptResults, matchingCitations);
+  }
+
+  // Clear search results
+  function clearSearchResults() {
+    searchResultsContainer.style.display = 'none';
+    citationsDisplayContainer.style.display = 'block';
+    searchInput.value = '';
+    
+    // Remove focus highlighting from search input
+    searchInput.style.borderColor = '#d1d5db';
+    searchInput.style.boxShadow = 'none';
+  }
+
+  // Event listeners with proper error handling
+  if (searchInput) {
+    // Add click handler to ensure it's focusable
+    searchInput.addEventListener('click', (e) => {
+      console.log('🔍 Search input clicked via event listener');
+      e.target.focus();
+      e.target.style.borderColor = '#667eea';
+      e.target.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
+      e.target.style.background = 'white';
+      e.target.style.color = '#374151';
+    });
+
+    // Force focus and styling
+    searchInput.addEventListener('focus', (e) => {
+      console.log('🔍 Search input focused');
+      e.target.style.borderColor = '#667eea';
+      e.target.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
+      e.target.style.background = 'white';
+      e.target.style.color = '#374151';
+    });
+
+    searchInput.addEventListener('blur', (e) => {
+      console.log('🔍 Search input blurred');
+      if (!e.target.value) {
+        e.target.style.borderColor = '#d1d5db';
+        e.target.style.boxShadow = 'none';
+      }
+    });
+
+    searchInput.addEventListener('input', (e) => {
+      console.log('🔍 Search input changed:', e.target.value);
+      
+      const query = e.target.value.trim();
+      
+      if (query.length > 0) {
+        performTranscriptSearch(query);
+        e.target.style.borderColor = '#667eea';
+        e.target.style.boxShadow = '0 0 0 2px rgba(102, 126, 234, 0.2)';
+      } else {
+        clearSearchResults();
+        e.target.style.borderColor = '#d1d5db';
+        e.target.style.boxShadow = 'none';
+      }
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+      console.log('🔍 Key pressed:', e.key, 'Value:', e.target.value);
+      
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        performTranscriptSearch(e.target.value);
+      }
+    });
+
+    searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        console.log('🔍 Enter pressed, searching for:', e.target.value);
+        performTranscriptSearch(e.target.value);
+      }
+    });
+
+    // Also add keyup for immediate response
+    searchInput.addEventListener('keyup', (e) => {
+      const query = e.target.value.trim();
+      console.log('🔍 Key up, current value:', query);
+      
+      if (query.length > 0) {
+        performTranscriptSearch(query);
+        e.target.style.borderColor = '#667eea';
+        e.target.style.boxShadow = '0 0 0 2px rgba(102, 126, 234, 0.2)';
+      } else {
+        clearSearchResults();
+        e.target.style.borderColor = '#d1d5db';
+        e.target.style.boxShadow = 'none';
+      }
+    });
+
+    // Force immediate focus to test
+    setTimeout(() => {
+      searchInput.focus();
+      console.log('🔍 Input auto-focused for testing');
+    }, 200);
+    
+    // Make sure the input is ready to be clicked
+    console.log('🔍 Search input ready for user interaction');
+    
+    console.log('✅ Search input event listeners attached');
+  } else {
+    console.warn('⚠️ Search input not found for event listeners');
+  }
+
+  if (clearButton) {
+    clearButton.addEventListener('click', () => {
+      console.log('🔍 Clear button clicked');
+      clearSearchResults();
+    });
+    console.log('✅ Clear button event listener attached');
+  }
+
+  // Quick search buttons
+  quickSearchButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const query = button.getAttribute('data-query');
+      searchInput.value = query;
+      performTranscriptSearch(query);
+      
+      // Add focus styling
+      searchInput.style.borderColor = '#667eea';
+      searchInput.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
+    });
+    
+    // Hover effects
+    button.addEventListener('mouseenter', () => {
+      button.style.background = 'rgba(102, 126, 234, 0.2)';
+      button.style.transform = 'translateY(-1px)';
+    });
+    
+    button.addEventListener('mouseleave', () => {
+      button.style.background = 'rgba(102, 126, 234, 0.1)';
+      button.style.transform = 'translateY(0)';
+    });
+  });
+}
+
+// Search in transcript text
+function searchInTranscript(query) {
+  const transcript = window.currentTranscriptForSearch || '';
+  const queryLower = query.toLowerCase();
+  const results = [];
+  
+  if (!transcript) {
+    console.warn('⚠️ No transcript available for search');
+    return results;
+  }
+
+  // Split transcript into sentences or segments
+  const segments = transcript.split(/[.!?]+/).filter(segment => segment.trim().length > 10);
+  
+  segments.forEach((segment, index) => {
+    const segmentLower = segment.toLowerCase();
+    const queryIndex = segmentLower.indexOf(queryLower);
+    
+    if (queryIndex !== -1) {
+      // Extract context around the match
+      const contextStart = Math.max(0, queryIndex - 50);
+      const contextEnd = Math.min(segment.length, queryIndex + query.length + 50);
+      let context = segment.substring(contextStart, contextEnd).trim();
+      
+      // Add ellipsis if needed
+      if (contextStart > 0) context = '...' + context;
+      if (contextEnd < segment.length) context = context + '...';
+      
+      // Highlight the search term
+      const regex = new RegExp(`(${query})`, 'gi');
+      const highlightedContext = context.replace(regex, '<mark style="background: #fef08a; color: #92400e; padding: 2px 4px; border-radius: 4px; font-weight: 600;">$1</mark>');
+      
+      results.push({
+        context: highlightedContext,
+        segment: segment.trim(),
+        segmentIndex: index,
+        matchPosition: queryIndex
+      });
+    }
+  });
+
+  return results.slice(0, 10); // Limit to 10 results
+}
+
+// Filter citations that match the search query
+function filterCitationsBySearch(citations, query) {
+  const queryLower = query.toLowerCase();
+  
+  return citations.filter(citation => {
+    const titleMatch = citation.title && citation.title.toLowerCase().includes(queryLower);
+    const authorMatch = citation.author && citation.author.toLowerCase().includes(queryLower);
+    const typeMatch = citation.type && citation.type.toLowerCase().includes(queryLower);
+    
+    return titleMatch || authorMatch || typeMatch;
+  });
+}
+
+// Display search results
+function displaySearchResults(query, transcriptResults, matchingCitations) {
+  const searchResultsContainer = document.getElementById('search-results-container');
+  const citationsDisplayContainer = document.getElementById('citations-display-container');
+  
+  // Hide original citations, show search results
+  citationsDisplayContainer.style.display = 'none';
+  searchResultsContainer.style.display = 'block';
+  
+  const hasTranscriptResults = transcriptResults.length > 0;
+  const hasCitationResults = matchingCitations.length > 0;
+  
+  let resultsHTML = `
+    <div style="
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 16px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+    ">
+      <div style="font-weight: 600; margin-bottom: 8px;">
+        🔍 Search Results for "${query}"
+      </div>
+      <div style="opacity: 0.9; font-size: 13px;">
+        Found ${transcriptResults.length} transcript matches and ${matchingCitations.length} related citations
+      </div>
+    </div>
+  `;
+
+  // Transcript search results
+  if (hasTranscriptResults) {
+    resultsHTML += `
+      <div style="
+        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+      ">
+        <h3 style="
+          margin: 0 0 12px 0;
+          font-size: 16px;
+          color: #92400e;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+        ">
+          📝 Transcript Mentions (${transcriptResults.length})
+        </h3>
+        <div style="space-y: 8px;">
+          ${transcriptResults.map((result, index) => `
+            <div style="
+              background: white;
+              padding: 12px;
+              border-radius: 8px;
+              border-left: 3px solid #f59e0b;
+              margin-bottom: 8px;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            ">
+              <div style="
+                font-size: 14px;
+                line-height: 1.5;
+                color: #374151;
+              ">${result.context}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  // Matching citations
+  if (hasCitationResults) {
+    const citationsHTML = matchingCitations.map((citation, index) => {
+      const typeIcon = citation.type === 'book' ? '📚' : 
+                     citation.type === 'product' ? '🛍️' : 
+                     citation.type === 'video' ? '🎬' :
+                     citation.type === 'topic' ? '💡' : 
+                     citation.type === 'place' ? '🌍' :
+                     citation.type === 'person' ? '👤' : 
+                     citation.type === 'company' ? '🏢' :
+                     citation.type === 'technology' ? '💻' :
+                     citation.type === 'event' ? '📜' : '📄';
+      const typeColor = citation.type === 'book' ? '#8b5cf6' : 
+                      citation.type === 'product' ? '#f59e0b' : 
+                      citation.type === 'video' ? '#dc2626' :
+                      citation.type === 'topic' ? '#10b981' : 
+                      citation.type === 'place' ? '#059669' :
+                      citation.type === 'person' ? '#7c3aed' : 
+                      citation.type === 'company' ? '#1f2937' :
+                      citation.type === 'technology' ? '#0ea5e9' :
+                      citation.type === 'event' ? '#dc2626' : '#6b7280';
+      const confidenceColor = citation.confidence > 0.7 ? '#10b981' : citation.confidence > 0.5 ? '#f59e0b' : '#ef4444';
+      
+      return createCitationCard(citation, index, typeIcon, typeColor, confidenceColor);
+    }).join('');
+
+    resultsHTML += `
+      <div style="
+        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+      ">
+        <h3 style="
+          margin: 0 0 12px 0;
+          font-size: 16px;
+          color: #1e40af;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+        ">
+          📋 Related Citations (${matchingCitations.length})
+        </h3>
+        <div>
+          ${citationsHTML}
+        </div>
+      </div>
+    `;
+  }
+
+  // No results message
+  if (!hasTranscriptResults && !hasCitationResults) {
+    resultsHTML += `
+      <div style="
+        display: flex;
+        align-items: center;
+        padding: 20px;
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        border-radius: 12px;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+      ">
+        <span style="font-size: 24px; margin-right: 12px;">🔍</span>
+        <div>
+          <div style="color: #dc2626; font-weight: 600; margin-bottom: 4px;">No results found for "${query}"</div>
+          <div style="color: #b91c1c; font-size: 13px;">Try a different search term or check the spelling</div>
+        </div>
+      </div>
+    `;
+  }
+
+  searchResultsContainer.innerHTML = resultsHTML;
 }
 
 // Create citation card HTML
