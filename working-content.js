@@ -45,8 +45,9 @@ class LLMCitationDetector {
                   || document.querySelector('h1[class*="title"] yt-formatted-string')?.textContent?.trim()
                   || document.querySelector('#title h1')?.textContent?.trim()
                   || document.querySelector('.title.style-scope.ytd-video-primary-info-renderer')?.textContent?.trim()
-                  || document.querySelector('h1')?.textContent?.trim() 
-                  || 'Unknown Video';
+                  || document.querySelector('h1')?.textContent?.trim()
+                  || document.querySelector('title')?.textContent?.trim()?.replace(' - YouTube', '')
+                  || window.location.search.match(/v=([^&]+)/)?.[1] || 'Unknown Video';
       
       channelName = document.querySelector('#owner #channel-name a')?.textContent?.trim()
                    || document.querySelector('#channel-name a')?.textContent?.trim() 
@@ -166,11 +167,16 @@ ${transcript}
 
 ANALYSIS INSTRUCTIONS:
 1. CAREFULLY READ the transcript and identify what is ACTUALLY being discussed
-2. Extract SPECIFIC concepts, theories, people, places, or technologies mentioned by name
-3. Focus on NUANCED, SPECIFIC terms rather than broad categories
-4. Avoid generic subject names like "physics", "math", "science", "history"
-5. Only include items explicitly mentioned in the transcript text
-6. Look for proper nouns, named theories, specific equations, particular experiments, exact locations
+2. PRIORITIZE in this order: PEOPLE NAMES → PLACES → SPECIFIC CONCEPTS/TECHNOLOGIES → EVENTS
+3. Extract SPECIFIC items mentioned by name, focusing on proper nouns and named entities
+4. For PEOPLE: Include full names (e.g., "Lewis Hamilton", "Albert Einstein", "Isaac Newton")
+5. For PLACES: Include specific locations (e.g., "Montreal", "Circuit Gilles Villeneuve", "Barcelona")
+6. For F1/RACING: Prioritize driver names, team names, circuit names, and specific racing terms
+7. For SCIENCE: Prioritize scientist names, specific theories, and named experiments
+8. STRICTLY AVOID generic terms like: "physics", "math", "science", "history", "technology", "video", "research", "study", "analysis", "general", "basic", "object", "objects", "thanks", "world", "solid", "material", "materials", "things", "stuff", "work", "works", "way", "time", "place", "part", "parts", "method", "process", "system"
+9. Only include items explicitly mentioned in the transcript text
+10. Prefer compound terms over single words (e.g., "General Relativity" not just "relativity")
+11. If discussing F1: Extract driver surnames (Hamilton, Verstappen, Leclerc, etc.) and team names (Mercedes, Ferrari, Red Bull, etc.)
 
 CONTENT-AWARE EXTRACTION RULES:
 - If discussing Einstein's work → Extract "Einstein's theory of relativity" or "Einstein's mass-energy equivalence" NOT just "Einstein" or "physics"
@@ -360,25 +366,36 @@ Please respond with accurate JSON:
       citationWorthy: []
     };
 
-    // Enhanced educational keywords with more comprehensive coverage
-    const educationalKeywords = {
+    // Enhanced keywords with comprehensive coverage including racing/F1
+    const keywordDatabase = {
+      // Educational/Science keywords
       people: ['einstein', 'newton', 'curie', 'tesla', 'galileo', 'faraday', 'maxwell', 'planck', 'bohr', 'feynman', 'hawking', 'darwin', 'mendel'],
       technologies: ['electricity', 'light', 'electron', 'laser', 'quantum', 'computer', 'algorithm', 'dna', 'microscope', 'telescope'],
       concepts: ['relativity', 'gravity', 'energy', 'momentum', 'velocity', 'acceleration', 'force', 'mass', 'time', 'space', 'quantum mechanics', 'wave-particle duality', 'uncertainty principle', 'electromagnetic', 'photon', 'atom', 'molecule', 'evolution', 'genetics', 'thermodynamics', 'entropy'],
       physics_terms: ['spacetime', 'black hole', 'event horizon', 'speed of light', 'general relativity', 'special relativity', 'quantum field theory', 'particle physics', 'electromagnetic radiation'],
       math_concepts: ['calculus', 'algebra', 'geometry', 'trigonometry', 'differential equations', 'probability', 'statistics', 'number theory'],
       biology_terms: ['cell', 'dna', 'rna', 'protein', 'enzyme', 'evolution', 'natural selection', 'genetics', 'chromosome', 'gene'],
-      chemistry_terms: ['molecule', 'atom', 'element', 'compound', 'reaction', 'periodic table', 'electron', 'proton', 'neutron']
+      chemistry_terms: ['molecule', 'atom', 'element', 'compound', 'reaction', 'periodic table', 'electron', 'proton', 'neutron'],
+      materials_terms: ['aerogel', 'carbon fiber', 'graphene', 'nanotube', 'polymer', 'ceramic', 'composite', 'crystal', 'semiconductor', 'superconductor', 'insulation', 'conductivity'],
+      
+      // Racing/F1 keywords  
+      f1_drivers: ['hamilton', 'verstappen', 'leclerc', 'russell', 'sainz', 'norris', 'piastri', 'albon', 'alonso', 'stroll', 'gasly', 'ocon', 'hulkenberg', 'magnussen', 'tsunoda', 'ricciardo', 'zhou', 'bottas', 'sargeant', 'de vries', 'antonelli', 'bearman', 'colapinto'],
+      f1_teams: ['mercedes', 'red bull', 'ferrari', 'mclaren', 'aston martin', 'alpine', 'williams', 'haas', 'alphatauri', 'alfa romeo', 'racing bulls'],
+      f1_circuits: ['silverstone', 'monza', 'spa-francorchamps', 'monaco', 'suzuka', 'interlagos', 'nurburgring', 'barcelona', 'montreal', 'imola', 'hungaroring', 'zandvoort', 'austin', 'singapore', 'mexico city', 'vegas', 'abu dhabi', 'bahrain', 'jeddah', 'melbourne'],
+      racing_concepts: ['pole position', 'fastest lap', 'drs', 'kers', 'pit stop', 'undercut', 'overcut', 'slipstream', 'dirty air', 'ground effect', 'downforce', 'aerodynamics', 'setup', 'qualifying', 'sprint race', 'formation lap', 'safety car', 'virtual safety car', 'flag to flag', 'wet weather'],
+      racing_terms: ['formula one', 'grand prix', 'championship', 'constructor', 'points system', 'parc ferme', 'technical regulations', 'stewards', 'fia', 'podium', 'fastest lap point', 'penalty', 'grid position', 'starting grid']
     };
 
     // Content-aware analysis - look for specific compound terms first
     const compoundTerms = [
+      // Science/Physics compound terms
+      { phrase: 'energy conservation', citation: 'Energy Conservation', category: 'concepts', confidence: 0.95 },
+      { phrase: 'general relativity', citation: 'General Relativity', category: 'concepts', confidence: 0.94 },
+      { phrase: 'special relativity', citation: 'Special Relativity', category: 'concepts', confidence: 0.94 },
       { phrase: 'theory of relativity', citation: 'Theory of Relativity', category: 'concepts', confidence: 0.95 },
       { phrase: 'quantum mechanics', citation: 'Quantum Mechanics', category: 'concepts', confidence: 0.95 },
       { phrase: 'speed of light', citation: 'Speed of Light', category: 'concepts', confidence: 0.93 },
       { phrase: 'black hole', citation: 'Black Holes', category: 'concepts', confidence: 0.92 },
-      { phrase: 'general relativity', citation: 'General Relativity', category: 'concepts', confidence: 0.94 },
-      { phrase: 'special relativity', citation: 'Special Relativity', category: 'concepts', confidence: 0.94 },
       { phrase: 'electromagnetic radiation', citation: 'Electromagnetic Radiation', category: 'concepts', confidence: 0.91 },
       { phrase: 'wave-particle duality', citation: 'Wave-Particle Duality', category: 'concepts', confidence: 0.93 },
       { phrase: 'uncertainty principle', citation: 'Heisenberg Uncertainty Principle', category: 'concepts', confidence: 0.92 },
@@ -386,7 +403,44 @@ Please respond with accurate JSON:
       { phrase: 'albert einstein', citation: 'Albert Einstein', category: 'people', confidence: 0.96 },
       { phrase: 'isaac newton', citation: 'Isaac Newton', category: 'people', confidence: 0.96 },
       { phrase: 'marie curie', citation: 'Marie Curie', category: 'people', confidence: 0.95 },
-      { phrase: 'nikola tesla', citation: 'Nikola Tesla', category: 'people', confidence: 0.94 }
+      { phrase: 'nikola tesla', citation: 'Nikola Tesla', category: 'people', confidence: 0.94 },
+      { phrase: 'conservation of energy', citation: 'Conservation of Energy', category: 'concepts', confidence: 0.95 },
+      { phrase: 'conservation laws', citation: 'Conservation Laws in Physics', category: 'concepts', confidence: 0.93 },
+      { phrase: 'relativistic physics', citation: 'Relativistic Physics', category: 'concepts', confidence: 0.92 },
+      // Materials Science terms
+      { phrase: 'aerogel', citation: 'Aerogel', category: 'concepts', confidence: 0.95 },
+      { phrase: 'silica aerogel', citation: 'Silica Aerogel', category: 'concepts', confidence: 0.96 },
+      { phrase: 'aerogel technologies', citation: 'Aerogel Technologies', category: 'companies', confidence: 0.94 },
+      { phrase: 'supercritical drying', citation: 'Supercritical Drying', category: 'concepts', confidence: 0.93 },
+      { phrase: 'thermal insulation', citation: 'Thermal Insulation', category: 'concepts', confidence: 0.91 },
+      { phrase: 'low density', citation: 'Low Density Materials', category: 'concepts', confidence: 0.90 },
+      { phrase: 'porous material', citation: 'Porous Materials', category: 'concepts', confidence: 0.90 },
+      
+      // F1/Racing compound terms
+      { phrase: 'lewis hamilton', citation: 'Lewis Hamilton', category: 'people', confidence: 0.96 },
+      { phrase: 'max verstappen', citation: 'Max Verstappen', category: 'people', confidence: 0.96 },
+      { phrase: 'charles leclerc', citation: 'Charles Leclerc', category: 'people', confidence: 0.95 },
+      { phrase: 'george russell', citation: 'George Russell', category: 'people', confidence: 0.95 },
+      { phrase: 'carlos sainz', citation: 'Carlos Sainz', category: 'people', confidence: 0.95 },
+      { phrase: 'lando norris', citation: 'Lando Norris', category: 'people', confidence: 0.95 },
+      { phrase: 'oscar piastri', citation: 'Oscar Piastri', category: 'people', confidence: 0.95 },
+      { phrase: 'fernando alonso', citation: 'Fernando Alonso', category: 'people', confidence: 0.96 },
+      { phrase: 'alex antonelli', citation: 'Alex Antonelli', category: 'people', confidence: 0.94 },
+      { phrase: 'oliver bearman', citation: 'Oliver Bearman', category: 'people', confidence: 0.94 },
+      { phrase: 'franco colapinto', citation: 'Franco Colapinto', category: 'people', confidence: 0.94 },
+      { phrase: 'red bull racing', citation: 'Red Bull Racing', category: 'companies', confidence: 0.95 },
+      { phrase: 'scuderia ferrari', citation: 'Scuderia Ferrari', category: 'companies', confidence: 0.95 },
+      { phrase: 'mercedes amg', citation: 'Mercedes-AMG Petronas F1 Team', category: 'companies', confidence: 0.95 },
+      { phrase: 'mclaren racing', citation: 'McLaren Racing', category: 'companies', confidence: 0.95 },
+      { phrase: 'aston martin', citation: 'Aston Martin F1 Team', category: 'companies', confidence: 0.94 },
+      { phrase: 'canadian grand prix', citation: 'Canadian Grand Prix', category: 'historicalEvents', confidence: 0.96 },
+      { phrase: 'monaco grand prix', citation: 'Monaco Grand Prix', category: 'historicalEvents', confidence: 0.96 },
+      { phrase: 'british grand prix', citation: 'British Grand Prix', category: 'historicalEvents', confidence: 0.96 },
+      { phrase: 'italian grand prix', citation: 'Italian Grand Prix', category: 'historicalEvents', confidence: 0.96 },
+      { phrase: 'circuit gilles villeneuve', citation: 'Circuit Gilles Villeneuve', category: 'places', confidence: 0.95 },
+      { phrase: 'pole position', citation: 'Pole Position', category: 'concepts', confidence: 0.93 },
+      { phrase: 'fastest lap', citation: 'Fastest Lap', category: 'concepts', confidence: 0.93 },
+      { phrase: 'formula one', citation: 'Formula One', category: 'concepts', confidence: 0.96 }
     ];
 
     // First pass: Look for compound terms (higher priority)
@@ -400,18 +454,69 @@ Please respond with accurate JSON:
       }
     }
 
-    // Second pass: Only add simple terms if we don't have many citations yet
-    if (mockAnalysis.citationWorthy.length < 5) {
-      for (const [category, terms] of Object.entries(educationalKeywords)) {
+    // Filter out overly generic terms (but preserve names and specific terms)
+    const genericTermsToAvoid = [
+      'science', 'math', 'mathematics', 'technology', 
+      'video', 'videos', 'research', 'study', 'analysis', 'theory', 'concept',
+      'unknown', 'general', 'basic', 'introduction', 'overview',
+      'object', 'objects', 'thanks', 'world', 'solid', 'they', 'things', 'stuff',
+      'material', 'materials', 'process', 'method', 'system', 'part', 'parts',
+      'way', 'time', 'place', 'work', 'works', 'make', 'making', 'used', 'use'
+    ];
+
+    // Second pass: Add simple terms based on detected content type and priority
+    const maxCitations = 12; // Increased limit for racing content
+    
+    // Detect content type for prioritized detection
+    const isRacingContent = text.includes('formula') || text.includes('grand prix') || 
+                           text.includes('f1') || text.includes('racing') || 
+                           title.includes('formula') || title.includes('grand prix') ||
+                           title.includes('f1') || title.includes('racing');
+    
+    const isEducationalContent = text.includes('physics') || text.includes('science') || 
+                               text.includes('quantum') || text.includes('theory') ||
+                               title.includes('physics') || title.includes('science');
+
+    console.log(`🎯 Content type detected - Racing: ${isRacingContent}, Educational: ${isEducationalContent}`);
+
+    if (mockAnalysis.citationWorthy.length < maxCitations) {
+      for (const [category, terms] of Object.entries(keywordDatabase)) {
         for (const term of terms) {
-          if (text.includes(term) && mockAnalysis.citationWorthy.length < 8) {
-            // Make sure we don't duplicate compound terms
+          if (text.includes(term) && mockAnalysis.citationWorthy.length < maxCitations) {
             const termCapitalized = term.charAt(0).toUpperCase() + term.slice(1);
-            if (!mockAnalysis.citationWorthy.some(existing => existing.toLowerCase().includes(term))) {
-              console.log(`✅ Found simple term: "${term}" in category: ${category}`);
-              mockAnalysis[category].push(termCapitalized);
-              mockAnalysis.citationWorthy.push(termCapitalized);
-            }
+            const isGeneric = genericTermsToAvoid.some(generic => term.toLowerCase() === generic);
+            const isDuplicate = mockAnalysis.citationWorthy.some(existing => existing.toLowerCase().includes(term));
+            
+            // Priority logic: F1 terms for racing content, educational terms for educational content
+            const isRelevantForContent = 
+              (isRacingContent && (category.includes('f1_') || category.includes('racing_'))) ||
+              (isEducationalContent && !category.includes('f1_') && !category.includes('racing_')) ||
+              (!isRacingContent && !isEducationalContent); // Default: allow all
+            
+                         // Additional validation: minimum term length and quality check
+             const isQualityTerm = term.length >= 4 && 
+                                 !term.match(/^(the|and|but|for|you|are|not|can|has|had|was|were|will|get|got|see|saw|say|said|come|came|go|went|take|took|give|gave|put|set|run|ran|find|found|call|make|made|turn|tell|ask|try|need|want|know|think|look|feel|become|leave|move|live|bring|begin|keep|hold|show|hear|let|help|talk|walk|open|close|start|stop|play|stay|seem|feel|appear|remain|happen|occur|exist|include|contain|involve|require|allow|cause|create|produce|provide|offer|serve|follow|lead|control|manage|handle|deal|face|meet|join|reach|achieve|succeed|fail|pass|miss|lose|win|gain|save|spend|cost|pay|buy|sell|build|break|fix|change|improve|increase|decrease|reduce|develop|grow|learn|teach|read|write|speak|listen|watch|wait|hope|expect|believe|remember|forget|understand|explain|describe|discuss|consider|decide|choose|prefer|like|love|hate|enjoy|appreciate|admire|respect|trust|doubt|worry)$/);
+             
+             if (!isGeneric && !isDuplicate && isRelevantForContent && isQualityTerm) {
+               console.log(`✅ Found ${category} term: "${term}" → "${termCapitalized}"`);
+               
+               // Map F1 categories to standard categories
+               let targetCategory = category;
+               if (category.startsWith('f1_drivers')) targetCategory = 'people';
+               else if (category.startsWith('f1_teams')) targetCategory = 'companies';
+               else if (category.startsWith('f1_circuits')) targetCategory = 'places';
+               else if (category.startsWith('racing_')) targetCategory = 'concepts';
+               
+               if (!mockAnalysis[targetCategory]) mockAnalysis[targetCategory] = [];
+               mockAnalysis[targetCategory].push(termCapitalized);
+               mockAnalysis.citationWorthy.push(termCapitalized);
+                         } else if (isGeneric) {
+               console.log(`❌ Skipped generic term: "${term}"`);
+             } else if (!isRelevantForContent) {
+               console.log(`❌ Skipped irrelevant term for content type: "${term}"`);
+             } else if (!isQualityTerm) {
+               console.log(`❌ Skipped low-quality term: "${term}"`);
+             }
           }
         }
       }
