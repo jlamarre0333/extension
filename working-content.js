@@ -322,14 +322,14 @@ Please respond with accurate JSON:
       const content = data.choices[0].message.content.trim();
       try {
         const parsedResponse = JSON.parse(content);
-        return parsedResponse;
-      } catch (parseError) {
+          return parsedResponse;
+        } catch (parseError) {
         console.log('⚠️ JSON parsing failed, attempting to extract JSON from response...');
-        // Try to extract JSON from response text
+          // Try to extract JSON from response text
         const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          return JSON.parse(jsonMatch[0]);
-        }
+          if (jsonMatch) {
+            return JSON.parse(jsonMatch[0]);
+          }
         throw new Error('Invalid JSON response from ChatGPT');
       }
       
@@ -345,51 +345,81 @@ Please respond with accurate JSON:
   async generateAcademicPaperSuggestions(videoData) {
     try {
       console.log('📚 Generating academic paper suggestions...');
+      console.log('🎯 Video Data Received:', {
+        title: videoData.title,
+        channel: videoData.channel,
+        description: videoData.description ? videoData.description.substring(0, 200) + '...' : 'No description',
+        transcriptLength: videoData.transcript ? videoData.transcript.length : 0
+      });
       
       // Safely handle transcript data
       const transcriptText = typeof videoData.transcript === 'string' ? videoData.transcript : 
                            (videoData.transcript || '').toString();
-      const transcriptSample = transcriptText.substring(0, 1000);
+      // Give ChatGPT much more content to analyze (first 8000 characters = ~15-20 minutes)
+      const transcriptSample = transcriptText.substring(0, 8000);
+      
+      console.log('📤 Sending to ChatGPT:', {
+        title: videoData.title,
+        channel: videoData.channel,
+        transcriptSampleLength: transcriptSample.length,
+        transcriptStart: transcriptSample.substring(0, 200) + '...'
+      });
       
       // Let ChatGPT analyze content intelligently without manual categorization
       
-      const prompt = `You are an expert research librarian AI with deep knowledge of academic literature across all fields. Analyze this YouTube video content and intelligently suggest 6-8 highly relevant academic papers that provide scientific depth and research context.
+      const prompt = `You are an expert research librarian AI with deep knowledge of academic literature across all fields. Your goal is to analyze YouTube video content and suggest academic papers that are not only relevant but also FASCINATING and CLICKABLE - papers that would make viewers excited to dive deeper into the topics, places, and people discussed.
 
 VIDEO CONTENT TO ANALYZE:
 Title: "${videoData.title}"
 Channel: "${videoData.channel}"
 Description: "${videoData.description || 'No description available'}"
-Transcript Sample: "${transcriptSample}"
+Transcript Content (${transcriptSample.length} characters of ${transcriptText.length} total): "${transcriptSample}"
 
-INSTRUCTIONS:
-1. ANALYZE the content to understand the main topics, themes, and educational focus
-2. IDENTIFY the primary academic field(s) relevant to this content
-3. SUGGEST real, published academic papers that directly relate to the video's topics
-4. PRIORITIZE papers that would enhance understanding of the concepts discussed
-5. INCLUDE a mix of foundational works and recent research when appropriate
-6. FOCUS on papers that provide scientific backing or deeper academic context
+ANALYSIS STRATEGY:
+1. IDENTIFY the most compelling topics, fascinating people, and interesting places mentioned
+2. FIND the "hook" - what would make someone curious to learn more?
+3. FOCUS on papers that tell engaging stories or reveal surprising insights
+4. PRIORITIZE papers about breakthrough discoveries, controversial theories, or dramatic historical moments
+5. LOOK for papers that connect to current events, popular culture, or universal human interests
+6. CHOOSE papers that would satisfy curiosity about "how did they discover this?" or "what's the real story?"
+
+TOPIC RECOGNITION HINTS:
+- If content mentions "butterfly effect", "chaos theory", "sensitive dependence" → Focus on chaos theory, dynamical systems, nonlinear dynamics
+- If content mentions "gravity", "relativity", "spacetime" → Focus on gravitational physics, Einstein's work
+- If content mentions "quantum", "uncertainty", "wave-particle" → Focus on quantum mechanics, quantum physics
+- If content mentions "evolution", "natural selection", "DNA" → Focus on evolutionary biology, genetics
+- If content mentions "climate", "weather", "atmosphere" → Focus on climate science, meteorology
+
+CITATION APPEAL FACTORS:
+- **Breakthrough Moments**: Papers about major discoveries, first observations, paradigm shifts
+- **Famous Scientists**: Work by Einstein, Newton, Darwin, Curie - household names that intrigue people
+- **Surprising Connections**: Papers that reveal unexpected links between topics
+- **Modern Relevance**: Recent research that impacts daily life or current technology
+- **Human Stories**: Research that reveals the human drama behind scientific discoveries
+- **Controversial Debates**: Papers that settled major scientific disputes or started new ones
 
 REQUIREMENTS:
 - All papers must be real and published (use your knowledge of actual academic literature)
 - Relevance scores should be 7-10 (only suggest highly relevant papers)
-- Include diverse perspectives and methodologies when applicable
-- Provide clear explanations of how each paper relates to the video content
-- Choose papers from reputable journals and well-known authors in the field
+- Write explanations that emphasize WHY someone would want to read this paper
+- Focus on the most interesting aspects - the discoveries, surprises, or insights
+- Make each paper sound like something you'd want to click on and explore
 
 OUTPUT FORMAT - Respond with ONLY valid JSON:
 {
   "academicField": "primary academic field",
-  "videoSummary": "concise summary of the video's academic content and themes",
+  "videoSummary": "engaging summary highlighting the most fascinating aspects covered in the video",
   "papers": [
     {
       "title": "exact paper title",
       "authors": ["author1", "author2"],
       "journal": "journal name",
       "year": 2023,
-      "relevanceExplanation": "detailed explanation of how this paper relates to and enhances the video content",
+      "relevanceExplanation": "compelling explanation that makes someone want to click - focus on the breakthrough, discovery, or surprising insight this paper reveals",
       "relevanceScore": 9,
       "doi": "10.xxxx/xxxxx (if known)",
-      "keywords": ["keyword1", "keyword2", "keyword3"]
+      "keywords": ["keyword1", "keyword2", "keyword3"],
+      "appealFactor": "what makes this paper irresistible to click on (e.g., 'first discovery', 'shocking revelation', 'famous controversy')"
     }
   ]
 }`;
