@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Citation Cross-Reference Simple",
-  "version": "1.0.3",
+  "version": "1.1.3",
   "description": "Simple test version",
   
   "permissions": [
@@ -11,7 +11,7 @@
   "content_scripts": [
     {
       "matches": ["https://www.youtube.com/*"],
-      "js": ["env.local.js", "llm-config.js", "working-content.js"],
+      "js": ["env.local.js", "llm-config.js", "fact-checker.js", "working-content.js"],
       "run_at": "document_idle"
     }
   ]

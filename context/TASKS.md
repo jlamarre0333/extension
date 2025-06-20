@@ -1,8 +1,11 @@
 # Citation Cross-Reference Extension - Task Board
 
 ## Doing  
-- [ ] Debug and fix timestamp extraction from YouTube transcript panel to resolve "Jump to 0:00" issue
-- [ ] Test timestamp matching accuracy with various YouTube videos with different transcript sources
+- [x] Build fact-checking feature to detect and verify claims in video content
+- [x] Implement claim detection patterns for factual statements
+- [x] Create fact verification engine with Wikipedia and reliable source integration
+- [x] Add Facts tab to sidebar UI with beautiful verification display
+- [x] Integrate fact-checking into main video analysis pipeline
 - [x] Add citation context and relevance explanations - show WHY each citation matters
 - [x] Make citation detection much more intelligent with multi-factor relevance scoring and AI validation
 - [x] Add real YouTube thumbnails to video recommendations instead of placeholder images
@@ -13,6 +16,7 @@
 - [x] Refine LLM prompt and validation to eliminate generic citations like "algebra" and "mathematics"
 - [x] Improve citation prioritization to rank content-rich citations above generic geographic locations
 - [x] Implement accurate timestamp matching for citations using transcript segment analysis
+- [x] Successfully implement emergency timestamp fix for citation jump buttons
 
 ## To Do
 
