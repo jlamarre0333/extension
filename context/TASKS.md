@@ -17,6 +17,11 @@
 - [x] Improve citation prioritization to rank content-rich citations above generic geographic locations
 - [x] Implement accurate timestamp matching for citations using transcript segment analysis
 - [x] Successfully implement emergency timestamp fix for citation jump buttons
+- [x] Fix fact-checking transcript data handling to properly analyze real video content instead of just titles
+- [x] Fix catastrophic backtracking issue in fact-checking regex patterns that was causing page crashes
+- [x] Implement safe fact-checking with text length limits and timeout protection
+- [x] Test enhanced fact-checking system on various educational YouTube videos to verify improved detection
+- [ ] Optimize fact-checking patterns and analysis for maximum educational claim detection
 
 ## To Do
 

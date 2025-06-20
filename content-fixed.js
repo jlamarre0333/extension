@@ -1253,7 +1253,7 @@ class SmartCitationsController {
       
       // Process fact-checking if available
       if (factChecker) {
-        currentFactChecks = await factChecker.detectClaims(fullText);
+        currentFactChecks = await factChecker.detectAndVerifyClaims(fullText);
       }
       
       // Update UI

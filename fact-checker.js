@@ -22,7 +22,38 @@ class SmartFactChecker {
         /(?:the\s+)?(?:speed\s+of\s+light|gravity|mass\s+of\s+(?:the\s+)?(?:Earth|Sun|Moon))\s+is\s+(?:approximately\s+|about\s+)?(\d+(?:,\d{3})*(?:\.\d+)?)\s*([a-zA-Z\/\s]+)/gi,
         /(?:the\s+)?(?:diameter|radius|distance)\s+of\s+(?:the\s+)?([A-Z][a-zA-Z\s]{3,25})\s+is\s+(?:approximately\s+|about\s+)?(\d+(?:,\d{3})*(?:\.\d+)?)\s*(km|miles|light-years|meters)/gi,
         /([A-Z][a-zA-Z\s]{3,25})\s+(?:has\s+a\s+)?(?:mass|weight|temperature)\s+of\s+(?:approximately\s+|about\s+)?(\d+(?:,\d{3})*(?:\.\d+)?)\s*([a-zA-Z\/°\s]+)/gi,
-        /(black\s+holes?|neutron\s+stars?|supernovas?|galaxies)\s+(?:can\s+)?(?:have|reach|contain)\s+(?:temperatures?|masses?|densities?)\s+of\s+(?:up\s+to\s+)?(\d+(?:,\d{3})*(?:\.\d+)?)/gi
+        /(black\s+holes?|neutron\s+stars?|supernovas?|galaxies)\s+(?:can\s+)?(?:have|reach|contain)\s+(?:temperatures?|masses?|densities?)\s+of\s+(?:up\s+to\s+)?(\d+(?:,\d{3})*(?:\.\d+)?)/gi,
+        // Enhanced scientific patterns for educational content
+        /(?:scientists?|researchers?)\s+(?:have\s+)?(?:found|discovered|shown|proved)\s+(?:that\s+)?([a-zA-Z0-9\s]{15,100})/gi,
+        /(?:studies?|research|experiments?)\s+(?:show|reveal|demonstrate|indicate)\s+(?:that\s+)?([a-zA-Z0-9\s]{15,100})/gi,
+        /(?:the\s+)?(?:theory|law|principle|concept)\s+of\s+([a-zA-Z\s]{5,40})\s+(?:states?|explains?|describes?)\s+(?:that\s+)?([a-zA-Z0-9\s]{15,100})/gi,
+        /(DNA|RNA|proteins?|genes?|molecules?|atoms?|cells?|neurons?)\s+(?:are|have|contain|consist\s+of)\s+([a-zA-Z0-9\s]{10,80})/gi,
+        /(?:the\s+)?(?:human\s+)?(?:brain|heart|liver|lungs?|kidney)\s+(?:contains?|has|produces?|processes?)\s+(?:about\s+|approximately\s+)?([a-zA-Z0-9\s,]{10,80})/gi
+      ],
+      
+      // Educational/explanatory content - NEW
+      educational: [
+        /(?:this\s+)?(?:phenomenon|effect|process|mechanism)\s+(?:is\s+)?(?:called|known\s+as|referred\s+to\s+as)\s+([a-zA-Z\s]{5,40})/gi,
+        /(?:the\s+)?(?:reason|cause|explanation)\s+(?:for\s+)?(?:this\s+)?(?:is\s+)?(?:that\s+)?([a-zA-Z0-9\s]{15,120})/gi,
+        /(?:this\s+)?(?:happens|occurs|works)\s+(?:because|when|due\s+to)\s+([a-zA-Z0-9\s]{15,100})/gi,
+        /(?:the\s+)?(?:result|effect|consequence|outcome)\s+(?:is\s+)?(?:that\s+)?([a-zA-Z0-9\s]{15,100})/gi,
+        /(?:research|studies|data|evidence)\s+(?:shows?|suggests?|indicates?)\s+(?:that\s+)?([a-zA-Z0-9\s]{15,120})/gi,
+        /(?:according\s+to|based\s+on)\s+(?:the\s+)?(?:study|research|data|evidence)\s+([a-zA-Z0-9\s]{15,100})/gi
+      ],
+      
+      // Quantitative claims - NEW
+      quantitative: [
+        /(?:about\s+|approximately\s+|roughly\s+|around\s+)?(\d+(?:,\d{3})*(?:\.\d+)?)\s+(?:percent|%)\s+of\s+([a-zA-Z\s]{5,60})/gi,
+        /(?:over|more\s+than|less\s+than|up\s+to|about)\s+(\d+(?:,\d{3})*(?:\.\d+)?)\s+(million|billion|thousand|hundred)\s+([a-zA-Z\s]{5,60})/gi,
+        /(?:the\s+)?(?:average|typical|normal|standard)\s+([a-zA-Z\s]{5,40})\s+(?:is|are|contains?|measures?)\s+(?:about\s+|approximately\s+)?(\d+(?:,\d{3})*(?:\.\d+)?)\s*([a-zA-Z\s\/]+)/gi,
+        /(?:can\s+)?(?:reach|achieve|grow\s+to|extend\s+to)\s+(?:up\s+to\s+|as\s+much\s+as\s+)?(\d+(?:,\d{3})*(?:\.\d+)?)\s*([a-zA-Z\s\/]+)/gi
+      ],
+      
+      // Comparative claims - NEW
+      comparative: [
+        /([a-zA-Z\s]{5,40})\s+(?:is|are)\s+(?:much\s+|significantly\s+)?(?:larger|smaller|bigger|faster|slower|heavier|lighter|stronger|weaker)\s+than\s+([a-zA-Z\s]{5,40})/gi,
+        /(?:compared\s+to|versus|vs\.?)\s+([a-zA-Z\s]{5,40}),?\s+([a-zA-Z\s]{5,40})\s+(?:is|are|has|have)\s+([a-zA-Z\s]{5,60})/gi,
+        /([a-zA-Z\s]{5,40})\s+(?:is|are)\s+(?:the\s+)?(?:most|least|best|worst|largest|smallest)\s+([a-zA-Z\s]{5,60})/gi
       ],
       
       // Geographic and demographic facts - more specific
@@ -30,13 +61,17 @@ class SmartFactChecker {
         /(?:the\s+)?population\s+of\s+([A-Z][a-zA-Z\s]{2,25})\s+is\s+(?:approximately\s+|about\s+)?(\d+(?:,\d{3})*(?:\.\d+)?)\s*(million|billion|thousand)/gi,
         /([A-Z][a-zA-Z\s]{2,25})\s+is\s+(?:the\s+)?capital\s+(?:city\s+)?of\s+([A-Z][a-zA-Z\s]{2,25})/gi,
         /(?:the\s+)?([A-Z][a-zA-Z\s]{2,25})\s+(?:River|Mountain|Desert|Ocean|Sea)\s+is\s+(?:approximately\s+|about\s+)?(\d+(?:,\d{3})*(?:\.\d+)?)\s*(km|miles|meters|feet)\s+(?:long|tall|wide|deep)/gi,
-        /([A-Z][a-zA-Z\s]{2,25})\s+has\s+an?\s+area\s+of\s+(?:approximately\s+|about\s+)?(\d+(?:,\d{3})*(?:\.\d+)?)\s*(?:square\s+)?(km|kilometers|miles)/gi
+        /([A-Z][a-zA-Z\s]{2,25})\s+has\s+an?\s+area\s+of\s+(?:approximately\s+|about\s+)?(\d+(?:,\d{3})*(?:\.\d+)?)\s*(?:square\s+)?(km|kilometers|miles)/gi,
+        /([A-Z][a-zA-Z\s]{2,25})\s+is\s+located\s+(?:in|on|at|near)\s+([A-Z][a-zA-Z\s]{2,40})/gi
       ],
       
       // Mathematical and technical facts
       mathematical: [
         /(?:the\s+value\s+of\s+)?(\w+(?:\s+\w+)*)\s+(?:equals|is)\s+(?:approximately\s+|about\s+)?(\d+(?:\.\d+)?)/gi,
-        /(\w+(?:\s+\w+)*)\s+has\s+(?:approximately\s+|about\s+)?(\d+(?:,\d{3})*(?:\.\d+)?)\s+(\w+)/gi
+        /(\w+(?:\s+\w+)*)\s+has\s+(?:approximately\s+|about\s+)?(\d+(?:,\d{3})*(?:\.\d+)?)\s+(\w+)/gi,
+        // Enhanced math patterns
+        /(?:the\s+)?(?:formula|equation|calculation)\s+(?:for\s+)?([a-zA-Z\s]{5,40})\s+(?:is|equals|gives)\s+([a-zA-Z0-9\s\+=\-\*\/\(\)]{5,60})/gi,
+        /(?:in\s+)?(?:mathematics|physics|chemistry|biology),?\s+([a-zA-Z\s]{5,40})\s+(?:is\s+)?(?:defined\s+as|means|refers\s+to)\s+([a-zA-Z0-9\s]{10,80})/gi
       ],
       
       // Biographical facts
@@ -44,7 +79,10 @@ class SmartFactChecker {
         /(\w+(?:\s+\w+)*)\s+was\s+born\s+in\s+(\w+(?:\s+\w+)*)/gi,
         /(\w+(?:\s+\w+)*)\s+lived\s+from\s+(\d{4})\s+to\s+(\d{4})/gi,
         /(\w+(?:\s+\w+)*)\s+was\s+(?:a|an)\s+(\w+(?:\s+\w+)*)/gi,
-        /(\w+(?:\s+\w+)*)\s+wrote\s+["']([^"']+)["']/gi
+        /(\w+(?:\s+\w+)*)\s+wrote\s+["']([^"']+)["']/gi,
+        // Enhanced biographical patterns
+        /([A-Z][a-zA-Z\s]{3,30})\s+(?:is\s+)?(?:famous|known|recognized)\s+for\s+([a-zA-Z\s]{10,80})/gi,
+        /([A-Z][a-zA-Z\s]{3,30})\s+(?:won|received|earned)\s+(?:the\s+)?([a-zA-Z\s]{5,60})\s+(?:in\s+)?(\d{4})?/gi
       ],
       
       // Economic and statistical facts
@@ -60,7 +98,10 @@ class SmartFactChecker {
         /(?:the\s+)?(?:butterfly\s+effect|chaos\s+theory|quantum\s+mechanics)\s+(?:suggests?|shows?|demonstrates?|means?)\s+(?:that\s+)?([a-zA-Z\s]{10,80})/gi,
         /(?:in\s+)?(\d{4}),?\s+([A-Z][a-zA-Z\s]{3,25})\s+(?:discovered|proved|showed)\s+(?:that\s+)?([a-zA-Z\s]{10,60})/gi,
         /(?:atoms?|molecules?|particles?)\s+(?:are|have|contain)\s+(?:approximately\s+|about\s+)?(\d+(?:,\d{3})*(?:\.\d+)?)\s*([a-zA-Z\s]+)/gi,
-        /(?:the\s+)?(?:scale\s+of\s+)?(?:atoms?|molecules?|particles?)\s+(?:is|are)\s+(?:approximately\s+|about\s+)?(\d+(?:,\d{3})*(?:\.\d+)?)\s*(nanometers?|micrometers?|picometers?)/gi
+        /(?:the\s+)?(?:scale\s+of\s+)?(?:atoms?|molecules?|particles?)\s+(?:is|are)\s+(?:approximately\s+|about\s+)?(\d+(?:,\d{3})*(?:\.\d+)?)\s*(nanometers?|micrometers?|picometers?)/gi,
+        // Enhanced physics patterns
+        /(?:energy|force|velocity|acceleration|momentum)\s+(?:is\s+)?(?:equal\s+to|calculated\s+by|given\s+by)\s+([a-zA-Z0-9\s\*\/\+=\-\(\)]{5,40})/gi,
+        /(?:if\s+)?(.{10,60})\s+(?:has\s+)?(?:friction|resistance|mass|energy|velocity),?\s+(?:it\s+will|then)\s+(.{10,80})/gi
       ]
     };
     
@@ -104,6 +145,16 @@ class SmartFactChecker {
   extractClaims(text) {
     console.log(`🔍 Analyzing transcript text (${text.length} characters):`, text.substring(0, 200) + '...');
     
+    // Add detailed debugging
+    console.log('🚨 FACT CHECKER DEBUG:');
+    console.log('📝 Full text sample (first 500 chars):', text.substring(0, 500));
+    console.log('📝 Text type:', typeof text);
+    console.log('📝 Text contains "butterfly":', text.toLowerCase().includes('butterfly'));
+    console.log('📝 Text contains "effect":', text.toLowerCase().includes('effect'));
+    console.log('📝 Text contains "theory":', text.toLowerCase().includes('theory'));
+    console.log('📝 Text contains "research":', text.toLowerCase().includes('research'));
+    console.log('📝 Text contains numbers:', /\d+/.test(text));
+    
     const claims = [];
     let claimId = 1;
     let totalMatches = 0;
@@ -112,56 +163,97 @@ class SmartFactChecker {
       console.log(`🔍 Checking category: ${category} with ${patterns.length} patterns`);
       
       for (const pattern of patterns) {
-        const matches = [...text.matchAll(pattern)];
-        totalMatches += matches.length;
-        
-        if (matches.length > 0) {
-          console.log(`✅ Found ${matches.length} matches for ${category} pattern`);
-        }
-        
-        for (const match of matches) {
-          const claimText = match[0].trim();
+        try {
+          const matches = [...text.matchAll(pattern)];
+          totalMatches += matches.length;
           
-          // Skip very short or generic claims - be more lenient for debugging
-          console.log(`🔍 Checking claim: "${claimText}" (length: ${claimText.length})`);
-          
-          if (claimText.length < 15) {
-            console.log(`❌ Claim too short: "${claimText}"`);
-            continue;
+          if (matches.length > 0) {
+            console.log(`✅ Found ${matches.length} matches for ${category} pattern:`, pattern.toString());
+            console.log('✅ Matches:', matches.map(m => m[0]));
           }
           
-          if (this.isGenericClaim(claimText)) {
-            console.log(`❌ Claim too generic: "${claimText}"`);
-            continue;
+          for (const match of matches) {
+            const claimText = match[0].trim();
+            
+            // Skip very short or generic claims - be more lenient for debugging
+            console.log(`🔍 Checking claim: "${claimText}" (length: ${claimText.length})`);
+            
+            if (claimText.length < 10) { // Reduced from 15 to 10
+              console.log(`❌ Claim too short: "${claimText}"`);
+              continue;
+            }
+            
+            if (this.isGenericClaim(claimText)) {
+              console.log(`❌ Claim too generic: "${claimText}"`);
+              continue;
+            }
+            
+            console.log(`✅ Valid claim found: "${claimText}"`);
+            
+            claims.push({
+              id: claimId++,
+              text: claimText,
+              category: category,
+              confidence: this.calculateClaimConfidence(match, category),
+              extractedData: this.extractDataFromMatch(match, category),
+              position: match.index
+            });
           }
-          
-          console.log(`✅ Valid claim found: "${claimText}"`);
-          
-          claims.push({
-            id: claimId++,
-            text: claimText,
-            category: category,
-            confidence: this.calculateClaimConfidence(match, category),
-            extractedData: this.extractDataFromMatch(match, category),
-            position: match.index
-          });
+        } catch (error) {
+          console.warn(`❌ Pattern error in category ${category}:`, error);
         }
       }
     }
     
     console.log(`📊 Pattern matching complete: ${totalMatches} total matches found, ${claims.length} claims created`);
     
+    // If no claims found, try simpler patterns as fallback
+    if (claims.length === 0) {
+      console.log('🚨 NO CLAIMS FOUND - Trying emergency fallback patterns...');
+      const emergencyPatterns = [
+        // Very simple patterns for any statement with numbers or specific terms
+        /(\w+\s+){3,10}(\d+|\d+%|percent|million|billion|theory|principle|effect|discovered|research|study)/gi,
+        // Catch scientific or educational terms
+        /(butterfly\s+effect|chaos\s+theory|quantum|relativity|evolution|gravity|energy)/gi,
+        // Basic factual statements
+        /([A-Z][a-zA-Z\s]{10,60})\s+(?:is|are|was|were|can|will|has|have)\s+([a-zA-Z0-9\s]{10,80})/gi
+      ];
+      
+      for (const pattern of emergencyPatterns) {
+        const matches = [...text.matchAll(pattern)];
+        console.log(`🚨 Emergency pattern found ${matches.length} matches:`, pattern.toString());
+        
+        for (const match of matches) {
+          const claimText = match[0].trim();
+          if (claimText.length > 15) {
+            console.log(`🚨 Emergency claim: "${claimText}"`);
+            claims.push({
+              id: claimId++,
+              text: claimText,
+              category: 'emergency',
+              confidence: 0.3,
+              extractedData: { fullMatch: claimText },
+              position: match.index
+            });
+          }
+        }
+      }
+    }
+    
     // Remove duplicates and sort by confidence
     const finalClaims = this.deduplicateClaims(claims)
       .filter(claim => {
-        const passed = claim.confidence > 0.3; // Lower threshold for debugging
+        const passed = claim.confidence > 0.15; // Even lower threshold for debugging
         if (!passed) console.log(`❌ Claim filtered out (low confidence ${claim.confidence.toFixed(2)}): "${claim.text}"`);
         return passed;
       })
       .sort((a, b) => b.confidence - a.confidence)
-      .slice(0, 10); // Limit to top 10 claims
+      .slice(0, 20); // Increased limit even more
       
     console.log(`🎯 Final result: ${finalClaims.length} claims will be fact-checked`);
+    if (finalClaims.length > 0) {
+      console.log('🎯 Final claims:', finalClaims.map(c => `"${c.text}" (${c.confidence.toFixed(2)})`));
+    }
     return finalClaims;
   }
 
@@ -178,6 +270,17 @@ class SmartFactChecker {
     if (/\d{4}/.test(text)) confidence += 0.15; // Contains year
     if (text.includes('million') || text.includes('billion')) confidence += 0.1;
     
+    // Enhanced educational content indicators
+    if (text.includes('research') || text.includes('studies') || text.includes('scientists')) confidence += 0.2;
+    if (text.includes('evidence') || text.includes('data') || text.includes('experiments')) confidence += 0.15;
+    if (text.includes('theory') || text.includes('principle') || text.includes('law')) confidence += 0.15;
+    if (text.includes('according to') || text.includes('based on')) confidence += 0.1;
+    if (text.includes('shows') || text.includes('demonstrates') || text.includes('indicates')) confidence += 0.15;
+    
+    // Boost for percentage and numerical claims
+    if (text.includes('percent') || text.includes('%')) confidence += 0.15;
+    if (/\d+/.test(text)) confidence += 0.1; // Contains any numbers
+    
     // Category-specific boosts
     const categoryBoosts = {
       historical: 0.2,
@@ -186,13 +289,16 @@ class SmartFactChecker {
       geographic: 0.1,
       mathematical: 0.1,
       statistical: 0.05,
-      physics: 0.15
+      physics: 0.15,
+      educational: 0.25,  // High boost for educational content
+      quantitative: 0.2,  // High boost for quantitative claims
+      comparative: 0.1    // Moderate boost for comparisons
     };
     
     confidence += categoryBoosts[category] || 0;
     
     // Penalty for very long claims (likely to be inaccurate)
-    if (text.length > 200) confidence -= 0.2;
+    if (text.length > 200) confidence -= 0.1; // Reduced penalty
     
     return Math.max(0, Math.min(1, confidence));
   }
@@ -498,23 +604,16 @@ class SmartFactChecker {
       'there are many',
       'people often say',
       'it is known',
-      'scientists think',
-      'experts believe',
-      'studies show',
-      'research suggests',
       'it is believed',
       'some say',
-      'many people',
-      'according to some'
+      'many people'
     ];
     
-    // Vague terms that lack specificity
+    // Vague terms that lack specificity - reduced list for educational content
     const vagueTerms = [
       'something', 'anything', 'everything', 'nothing', 
       'somewhere', 'anywhere', 'everywhere', 'nowhere',
-      'someone', 'anyone', 'everyone', 'no one',
-      'various', 'numerous', 'several', 'multiple',
-      'different', 'certain', 'particular', 'specific'
+      'someone', 'anyone', 'everyone', 'no one'
     ];
     
     // Check for generic phrases
@@ -522,21 +621,36 @@ class SmartFactChecker {
       return true;
     }
     
-    // Check for too many vague terms
+    // Check for too many vague terms - increased tolerance
     const vaguenessCount = vagueTerms.filter(term => lowerText.includes(term)).length;
-    if (vaguenessCount > 1) return true;
+    if (vaguenessCount > 2) return true; // Increased from 1 to 2
     
     // Must contain specific factual content (dates, numbers, proper nouns) - more lenient
-    const hasSpecificContent = /(\d{4}|\d+(?:,\d{3})+|\d+\.\d+|[A-Z][a-zA-Z]{2,})/.test(text);
+    const hasSpecificContent = /(\d{4}|\d+(?:,\d{3})+|\d+\.\d+|[A-Z][a-zA-Z]{2,}|percent|%|\d+)/.test(text);
     if (!hasSpecificContent) {
       console.log(`❌ No specific content in: "${text}"`);
       return true;
     }
     
-    // Avoid claims that are just opinions or general statements
-    const opinionWords = ['should', 'could', 'might', 'maybe', 'perhaps', 'probably', 'seems', 'appears'];
-    const opinionCount = opinionWords.filter(word => lowerText.includes(word)).length;
-    if (opinionCount > 0) return true;
+    // Educational terms that should NOT be filtered out
+    const educationalTerms = [
+      'research', 'study', 'studies', 'scientists', 'theory', 'principle', 
+      'experiment', 'data', 'evidence', 'according to', 'shows', 'demonstrates',
+      'discovered', 'found', 'indicates', 'suggests', 'reveals'
+    ];
+    
+    // If it contains educational terms, be more permissive
+    const hasEducationalTerms = educationalTerms.some(term => lowerText.includes(term));
+    if (hasEducationalTerms) {
+      // Only filter out if it's REALLY generic
+      const veryGenericPhrases = ['it should', 'you should', 'we should', 'maybe', 'perhaps'];
+      return veryGenericPhrases.some(phrase => lowerText.includes(phrase));
+    }
+    
+    // Avoid claims that are just opinions or general statements - but be less strict
+    const strongOpinionWords = ['should', 'must', 'need to', 'have to'];
+    const strongOpinionCount = strongOpinionWords.filter(word => lowerText.includes(word)).length;
+    if (strongOpinionCount > 0) return true;
     
     return false;
   }
