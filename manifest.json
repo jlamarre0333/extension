@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Citation Cross-Reference Simple",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Simple test version",
   
   "permissions": [

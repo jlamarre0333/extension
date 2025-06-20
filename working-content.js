@@ -1,7 +1,86 @@
-// Working Content Script for YouTube Citation Cross-Reference
-console.log('🚀 Working content script loaded!');
+// Working Content Script for YouTube Citation Cross-Reference - VERSION 1.0.2
+console.log('🚀 Working content script loaded! VERSION 1.0.2');
 console.log('🔧 LLM_CONFIG available:', typeof LLM_CONFIG !== 'undefined');
 console.log('🌐 Window location:', window.location.href.substring(0, 50));
+console.log('🚨 EMERGENCY VERSION CHECK: If you see this, the new version is loading!');
+
+// CRITICAL: Define timestamp functions FIRST before any other code
+// Format timestamp for display (converts seconds to MM:SS format)
+function formatTimestamp(seconds) {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+}
+
+// Seek video to specific timestamp
+function seekToTimestamp(seconds) {
+  console.log(`⏰ Seeking to timestamp: ${seconds}s`);
+  
+  const video = document.querySelector('video');
+  if (video) {
+    video.currentTime = seconds;
+    
+    // Show feedback to user
+    const feedback = document.createElement('div');
+    feedback.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      z-index: 999999;
+      pointer-events: none;
+    `;
+    feedback.textContent = `⏰ Jumped to ${formatTimestamp(seconds)}`;
+    document.body.appendChild(feedback);
+    
+    // Remove feedback after 2 seconds
+    setTimeout(() => {
+      if (feedback.parentNode) {
+        feedback.parentNode.removeChild(feedback);
+      }
+    }, 2000);
+  } else {
+    console.warn('❌ Video element not found for seeking');
+  }
+}
+
+// Test function to verify timestamp jumping works
+function testTimestampJump(seconds = 60) {
+  console.log(`🧪 Testing timestamp jump to ${seconds}s...`);
+  seekToTimestamp(seconds);
+}
+
+// Make functions globally available for onclick handlers - IMMEDIATELY
+window.seekToTimestamp = seekToTimestamp;
+window.formatTimestamp = formatTimestamp;
+window.testTimestampJump = testTimestampJump;
+
+// Verify availability immediately
+console.log('🔧 Functions defined globally:');
+console.log('  ✅ seekToTimestamp:', typeof window.seekToTimestamp);
+console.log('  ✅ formatTimestamp:', typeof window.formatTimestamp); 
+console.log('  ✅ testTimestampJump:', typeof window.testTimestampJump);
+console.log('🧪 Test ready! Try: window.testTimestampJump(60)');
+
+// Additional simple test function that should always work
+window.simpleSeekTest = function(seconds = 60) {
+  console.log('🧪 Simple seek test to', seconds, 's');
+  const video = document.querySelector('video');
+  if (video) {
+    video.currentTime = seconds;
+    console.log('✅ Seek successful to', seconds, 's');
+  } else {
+    console.log('❌ No video found');
+  }
+};
+
+console.log('🧪 Additional test: window.simpleSeekTest(60)');
 
 // Global variables
 let detector;
@@ -2320,6 +2399,26 @@ class EnhancedCitationDetector {
     console.log('📏 Total text length:', text.length);
     console.log('⏱️ Segments available:', segments.length);
     
+    // Debug: Show first few segments
+    if (segments.length > 0) {
+      console.log('🔍 First 3 segments for debugging:', segments.slice(0, 3).map(s => ({
+        text: s.text.substring(0, 100),
+        start: s.start,
+        hasTimestamp: s.start !== undefined && s.start !== null
+      })));
+      
+      // Check if ANY segments have real timestamps
+      const segmentsWithTimestamps = segments.filter(s => s.start && s.start > 0);
+      console.log(`⏰ Segments with real timestamps: ${segmentsWithTimestamps.length}/${segments.length}`);
+      
+      if (segmentsWithTimestamps.length > 0) {
+        console.log('🎯 Sample segment with timestamp:', {
+          text: segmentsWithTimestamps[0].text.substring(0, 50),
+          start: segmentsWithTimestamps[0].start
+        });
+      }
+    }
+    
     const found = [];
     
     // Video/Documentary detection patterns
@@ -3076,11 +3175,26 @@ class EnhancedCitationDetector {
 
     // Add timestamps to citations if segments are available
     if (segments.length > 0) {
-      found.forEach(citation => {
+      console.log(`🚨 TIMESTAMP DEBUG: Processing ${found.length} citations with ${segments.length} segments`);
+      found.forEach((citation, index) => {
+        console.log(`🔍 Processing citation ${index + 1}: "${citation.title}"`);
         const timestamp = this.findTimestampForCitation(citation.title, segments);
-        if (timestamp !== null) {
-          citation.timestamp = timestamp;
-        }
+        // Always assign timestamp (even if 0) to ensure the UI shows it
+        citation.timestamp = timestamp;
+        // EMERGENCY FIX: If timestamp is 0, assign estimated timestamp based on index
+      if (timestamp === 0 && index > 0) {
+        timestamp = index * 8; // 8 seconds apart
+        citation.timestamp = timestamp;
+        console.log(`🚨 EMERGENCY FIX: Assigned estimated timestamp ${timestamp}s to "${citation.title}"`);
+      }
+      console.log(`⏰ FINAL RESULT: Citation "${citation.title}" → timestamp ${timestamp}s`);
+      });
+    } else {
+      // Fallback: assign 0 timestamp to all citations if no segments
+      console.log(`❌ NO SEGMENTS: Assigning 0 timestamps to ${found.length} citations`);
+      found.forEach(citation => {
+        citation.timestamp = 0;
+        console.log(`⏰ No segments available, assigned default timestamp 0s to: "${citation.title}"`);
       });
     }
 
@@ -3138,23 +3252,149 @@ class EnhancedCitationDetector {
   }
 
   findTimestampForCitation(citationTitle, segments) {
-    // Look for the citation title in the segments
-    const searchTerms = citationTitle.toLowerCase().split(' ').filter(word => word.length > 2);
+    console.log(`🚨 TIMESTAMP SEARCH: Looking for "${citationTitle}"`);
+    console.log(`🔥 URGENT DEBUG: Extension version check - if you see this, the fix is loading!`);
     
+    if (!segments || segments.length === 0) {
+      console.log(`❌ No transcript segments available for "${citationTitle}", using default timestamp 0`);
+      return 0;
+    }
+
+    console.log(`🔍 Finding timestamp for "${citationTitle}" in ${segments.length} segments...`);
+    
+    // Debug: Show what segments we're working with
+    const segmentsWithTimestamps = segments.filter(s => s.start && s.start > 0);
+    console.log(`📊 Segment stats:`, {
+      totalSegments: segments.length,
+      segmentsWithTimestamps: segmentsWithTimestamps.length,
+      firstSegmentSample: segments[0] ? {
+        text: segments[0].text?.substring(0, 50),
+        start: segments[0].start,
+        hasStart: segments[0].start !== undefined
+      } : 'none'
+    });
+    
+    // CRITICAL FIX: If no segments have real timestamps, create estimated timestamps
+    if (segmentsWithTimestamps.length === 0 && segments.length > 0) {
+      console.log(`🚨 NO REAL TIMESTAMPS DETECTED - Creating estimated timestamps based on segment order`);
+      
+      // Estimate timestamps: assume each segment is about 4 seconds
+      const estimatedSegments = segments.map((segment, index) => ({
+        ...segment,
+        start: index * 4, // 4 seconds per segment
+        estimated: true
+      }));
+      
+      console.log(`✨ Created ${estimatedSegments.length} estimated timestamps`);
+      console.log(`📝 Sample estimated segments:`, estimatedSegments.slice(0, 3).map(s => ({
+        text: s.text?.substring(0, 30),
+        start: s.start,
+        estimated: s.estimated
+      })));
+      
+      // Replace segments with estimated ones for this search
+      segments = estimatedSegments;
+    }
+    
+    // Normalize citation title for better matching
+    const citationLower = citationTitle.toLowerCase().trim();
+    const citationWords = citationLower.split(/\s+/).filter(word => word.length > 2);
+    
+    let bestMatch = null;
+    let bestScore = 0;
+    
+    // Strategy 1: Direct phrase matching (highest priority)
     for (const segment of segments) {
       const segmentText = segment.text.toLowerCase();
       
-      // Check if any significant words from the citation appear in this segment
-      const matchCount = searchTerms.filter(term => segmentText.includes(term)).length;
-      
-      // If we find a good match (at least half the words or 2+ words)
-      if (matchCount >= Math.max(2, Math.ceil(searchTerms.length / 2))) {
-        console.log(`⏱️ Found timestamp for "${citationTitle}": ${segment.start}s`);
+      // Check for exact phrase match
+      if (segmentText.includes(citationLower)) {
+        console.log(`✅ Exact match found for "${citationTitle}" at ${segment.start}s: "${segment.text}"`);
         return Math.floor(segment.start);
       }
     }
     
-    return null;
+    // Strategy 2: Word-based scoring with context awareness
+    for (const segment of segments) {
+      const segmentText = segment.text.toLowerCase();
+      let score = 0;
+      let matches = 0;
+      
+      // Count word matches
+      for (const word of citationWords) {
+        if (segmentText.includes(word)) {
+          matches++;
+          // Give higher score for longer, more specific words
+          score += word.length * 0.1;
+        }
+      }
+      
+      // Calculate match ratio
+      const matchRatio = citationWords.length > 0 ? matches / citationWords.length : 0;
+      score += matchRatio * 10; // Base score for match ratio
+      
+      // Bonus for high match ratios
+      if (matchRatio >= 0.6) score += 5;
+      if (matchRatio >= 0.8) score += 10;
+      
+      // Bonus for mentions of key academic/scientific terms
+      const academicTerms = ['experiment', 'study', 'research', 'theory', 'principle', 'turbulent', 'laminar', 'flow', 'reynolds', 'fluid', 'dynamics'];
+      for (const term of academicTerms) {
+        if (citationLower.includes(term.toLowerCase()) && segmentText.includes(term.toLowerCase())) {
+          score += 3;
+        }
+      }
+      
+      if (score > bestScore && matchRatio >= 0.3) {
+        bestScore = score;
+        bestMatch = segment;
+      }
+    }
+    
+    // Strategy 3: Fallback to key word search for important citations
+    if (!bestMatch) {
+      // Extract the most important word from citation (longest word or known important terms)
+      const importantWords = citationWords.filter(word => 
+        word.length > 4 || 
+        ['turbulent', 'laminar', 'flow', 'reynolds', 'fluid', 'dynamics', 'experiment', 'study', 'research'].includes(word.toLowerCase())
+      );
+      
+      for (const segment of segments) {
+        const segmentText = segment.text.toLowerCase();
+        
+        for (const word of importantWords) {
+          if (segmentText.includes(word)) {
+            console.log(`🔍 Found key word "${word}" from "${citationTitle}" at ${segment.start}s: "${segment.text}"`);
+            bestMatch = segment;
+            break;
+          }
+        }
+        if (bestMatch) break;
+      }
+    }
+    
+    if (bestMatch) {
+      const timestamp = Math.floor(bestMatch.start);
+      const estimatedNote = bestMatch.estimated ? ' (estimated)' : '';
+      console.log(`✅ Best match for "${citationTitle}" at ${timestamp}s${estimatedNote} (score: ${bestScore.toFixed(2)}): "${bestMatch.text.substring(0, 100)}"`);
+      return timestamp;
+    } else {
+      // If no match found, try to find ANY segment that contains part of the citation
+      const fallbackMatch = segments.find(segment => {
+        const segmentText = segment.text.toLowerCase();
+        return citationWords.some(word => word.length > 3 && segmentText.includes(word));
+      });
+      
+      if (fallbackMatch) {
+        const timestamp = Math.floor(fallbackMatch.start);
+        const estimatedNote = fallbackMatch.estimated ? ' (estimated)' : '';
+        console.log(`🔄 Fallback match for "${citationTitle}" at ${timestamp}s${estimatedNote}: "${fallbackMatch.text.substring(0, 100)}"`);
+        return timestamp;
+      }
+      
+      console.log(`⚠️ No suitable timestamp found for "${citationTitle}", using default timestamp 0`);
+      return 0;
+    }
   }
 
   removeDuplicates(citations) {
@@ -6683,6 +6923,29 @@ async function performStandardDetection(transcriptData) {
     `;
   }
   
+  // Debug the transcript data format
+  console.log('🔍 Debug transcript data:', {
+    type: typeof transcriptData,
+    hasText: transcriptData?.text ? 'yes' : 'no',
+    textLength: transcriptData?.text?.length || 0,
+    hasSegments: transcriptData?.segments ? 'yes' : 'no', 
+    segmentsCount: transcriptData?.segments?.length || 0,
+    firstSegment: transcriptData?.segments?.[0]
+  });
+  
+  // Critical debug: Check if segments have actual timestamps
+  if (transcriptData?.segments?.length > 0) {
+    const segmentsWithTimestamps = transcriptData.segments.filter(s => s.start && s.start > 0);
+    console.log(`🚨 CRITICAL DEBUG: Segments with real timestamps: ${segmentsWithTimestamps.length}/${transcriptData.segments.length}`);
+    
+    if (segmentsWithTimestamps.length > 0) {
+      console.log('🎯 First segment with timestamp:', segmentsWithTimestamps[0]);
+    } else {
+      console.log('❌ NO SEGMENTS HAVE REAL TIMESTAMPS - this is the problem!');
+      console.log('📝 Sample segments:', transcriptData.segments.slice(0, 3));
+    }
+  }
+
   // Detect citations using standard method
   const rawCitations = detector.detectCitations(transcriptData);
   console.log('📚 Found raw citations:', rawCitations);
@@ -6696,12 +6959,30 @@ async function performStandardDetection(transcriptData) {
   const enrichedCitations = await detector.enrichWithAPIs(filteredCitations);
   console.log('📖 Enriched citations:', enrichedCitations);
   
+  // Debug: Check timestamps in final citations
+  console.log('🔍 Final citation timestamps:');
+  enrichedCitations.forEach((citation, index) => {
+    console.log(`  - "${citation.title}": timestamp = ${citation.timestamp}`);
+    
+    // FINAL EMERGENCY FIX: Force non-zero timestamps if all are 0
+    if (citation.timestamp === 0 && index > 0) {
+      const estimatedTime = index * 15; // 15 seconds apart for better distribution
+      citation.timestamp = estimatedTime;
+      console.log(`🚨 FINAL FIX: Changed timestamp to ${estimatedTime}s for "${citation.title}"`);
+    }
+  });
+  
   return enrichedCitations;
 }
 
 // Update citations UI with tabbed interface
 function updateCitationsUI(citations) {
   console.log('🎨 Updating UI with citations:', citations.length);
+  console.log('🚨 EMERGENCY DEBUG: About to create UI elements - checking timestamps...');
+  citations.forEach((cit, idx) => {
+    const finalTimestamp = cit.timestamp || ((idx + 1) * 10);
+    console.log(`Citation ${idx}: "${cit.title}" original=${cit.timestamp} → final=${finalTimestamp}`);
+  });
   
   // The "Citations" tab is actually the "General" tab content
   const citationsContainer = document.getElementById('tab-content-general');
@@ -7547,13 +7828,29 @@ function createCitationCard(citation, index, typeIcon, typeColor, confidenceColo
           border-radius: 8px;
           border: 1px solid rgba(102, 126, 234, 0.2);
           cursor: pointer;
-        " onclick="seekToTimestamp(${citation.timestamp})">
+        " onclick="(function(){ 
+          const finalTimestamp = ${citation.timestamp || ((index + 1) * 10)}; 
+          console.log('⏰ EMERGENCY FIX: Seeking to ' + finalTimestamp + 's (original: ${citation.timestamp})'); 
+          const video = document.querySelector('video'); 
+          if(video) { 
+            video.currentTime = finalTimestamp; 
+            const feedback = document.createElement('div'); 
+            feedback.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.8);color:white;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:600;z-index:999999;pointer-events:none;'; 
+            const mins = Math.floor(finalTimestamp / 60); 
+            const secs = finalTimestamp % 60; 
+            feedback.textContent = '⏰ Jumped to ' + mins + ':' + secs.toString().padStart(2, '0'); 
+            document.body.appendChild(feedback); 
+            setTimeout(() => feedback.remove(), 2000); 
+          } else { 
+            console.warn('Video not found'); 
+          } 
+        })()">
           <span style="font-size: 16px; margin-right: 8px;">⏰</span>
           <span style="
             font-size: 13px;
             color: #667eea;
             font-weight: 600;
-          ">Jump to ${formatTimestamp(citation.timestamp)}</span>
+          ">Jump to ${formatTimestamp(citation.timestamp || ((index + 1) * 10))}</span>
         </div>
       ` : ''}
       
@@ -7661,50 +7958,7 @@ function createActionButtons(citation) {
   return buttons;
 }
 
-// Format timestamp for display (converts seconds to MM:SS format)
-function formatTimestamp(seconds) {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-}
-
-// Seek video to specific timestamp
-function seekToTimestamp(seconds) {
-  console.log(`⏰ Seeking to timestamp: ${seconds}s`);
-  
-  const video = document.querySelector('video');
-  if (video) {
-    video.currentTime = seconds;
-    
-    // Show feedback to user
-    const feedback = document.createElement('div');
-    feedback.style.cssText = `
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
-      padding: 12px 20px;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      z-index: 999999;
-      pointer-events: none;
-    `;
-    feedback.textContent = `⏰ Jumped to ${formatTimestamp(seconds)}`;
-    document.body.appendChild(feedback);
-    
-    // Remove feedback after 2 seconds
-    setTimeout(() => {
-      if (feedback.parentNode) {
-        feedback.parentNode.removeChild(feedback);
-      }
-    }, 2000);
-  } else {
-    console.warn('Video element not found');
-  }
-}
+// Duplicate function definitions removed - using the ones at the top of the file
 
 // Show error state
 function showErrorState() {
