@@ -266,7 +266,7 @@ Please respond with accurate JSON:
       console.log(`📤 Prompt length: ${prompt.length} characters`);
       console.log(`📤 Transcript being sent: "${transcript.substring(0, 500)}..."`);
       
-      const result = await this.callOllama(prompt);
+      const result = await this.callChatGPT(prompt);
       console.log('📥 LLM Response received:', result);
       return result;
       
@@ -277,106 +277,66 @@ Please respond with accurate JSON:
     }
   }
 
-  async callOllama(prompt) {
-    let lastError = null;
-    
-    // Method 1: Try direct connection first with timeout
+  async callChatGPT(prompt) {
     try {
-      console.log('🔗 Attempting direct Ollama connection...');
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      console.log('🤖 Calling ChatGPT API...');
       
-      const directResponse = await fetch('http://localhost:11434/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'llama3.2',
-          prompt: prompt,
-          stream: false,
-          format: 'json'
-        }),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (directResponse.ok) {
-        const data = await directResponse.json();
-        console.log('✅ Direct Ollama connection successful');
-        
-        // Parse the JSON response safely
-        try {
-          const parsedResponse = JSON.parse(data.response);
-          return parsedResponse;
-        } catch (parseError) {
-          console.log('⚠️ JSON parsing failed, attempting to extract JSON from text...');
-          // Try to extract JSON from response text
-          const jsonMatch = data.response.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            return JSON.parse(jsonMatch[0]);
-          }
-          throw new Error('Invalid JSON response from Ollama');
-        }
-      } else {
-        lastError = `Direct connection failed: ${directResponse.status}`;
+      // Get API key from environment
+      const apiKey = window.LOCAL_ENV?.OPENAI_API_KEY || window.OPENAI_API_KEY;
+      if (!apiKey) {
+        throw new Error('OpenAI API key not configured. Please check env.local.js');
       }
-    } catch (error) {
-      lastError = `Direct connection error: ${error.message}`;
-      console.log('🔧 Direct connection failed:', error.message);
-    }
-
-    // Method 2: Try CORS proxy fallback
-    try {
-      console.log('🌉 Attempting CORS proxy fallback...');
       
-      // Extract transcript from prompt more reliably
-      const transcriptMatch = prompt.match(/TRANSCRIPT CONTENT \(\d+ characters\):\n([\s\S]*?)\n\nCRITICAL INSTRUCTIONS:/);
-      const extractedTranscript = transcriptMatch ? transcriptMatch[1] : prompt.split('TRANSCRIPT CONTENT')[1]?.split('CRITICAL INSTRUCTIONS')[0]?.trim() || '';
-      
-      console.log(`📤 Extracted transcript for proxy: ${extractedTranscript.length} characters`);
-      console.log(`📤 Transcript sample: "${extractedTranscript.substring(0, 300)}..."`);
-      
-      const proxyResponse = await fetch('http://localhost:3001/api/ollama-analyze', {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
         body: JSON.stringify({
-          videoMetadata: {
-            title: prompt.match(/Title: "(.*?)"/)?.[1] || 'Unknown Video',
-            channelName: prompt.match(/Channel: "(.*?)"/)?.[1] || 'Unknown Channel',
-            description: prompt.match(/Description: "(.*?)"/)?.[1] || '',
-            transcript: extractedTranscript
-          }
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a research librarian AI that analyzes educational content and provides academic paper suggestions. Always respond with valid JSON only.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 2000
         })
       });
 
-      if (proxyResponse.ok) {
-        const proxyData = await proxyResponse.json();
-        console.log('✅ CORS proxy connection successful');
-        return proxyData.analysis;
-      } else {
-        lastError = `Proxy error: ${proxyResponse.status}`;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`ChatGPT API error: ${response.status} ${errorData.error?.message || 'Unknown error'}`);
       }
-    } catch (error) {
-      lastError = `Proxy error: ${error.message}`;
-      console.log('🔧 CORS proxy failed:', error.message);
-    }
 
-    // Method 3: Check if Ollama is even running
-    try {
-      console.log('🔍 Checking if Ollama service is running...');
-      const healthCheck = await fetch('http://localhost:11434/', {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' }
-      });
+      const data = await response.json();
+      console.log('✅ ChatGPT API call successful');
       
-      if (!healthCheck.ok) {
-        throw new Error(`Ollama not responding on port 11434. Please ensure Ollama is running and try: ollama serve`);
+      // Parse the JSON response
+      const content = data.choices[0].message.content.trim();
+      try {
+        const parsedResponse = JSON.parse(content);
+        return parsedResponse;
+      } catch (parseError) {
+        console.log('⚠️ JSON parsing failed, attempting to extract JSON from response...');
+        // Try to extract JSON from response text
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          return JSON.parse(jsonMatch[0]);
+        }
+        throw new Error('Invalid JSON response from ChatGPT');
       }
+      
     } catch (error) {
-      throw new Error(`Ollama service not available: ${error.message}. Please start Ollama with: ollama serve`);
+      console.error('❌ ChatGPT API error:', error);
+      throw error;
     }
-
-    throw new Error(`All connection methods failed. Last error: ${lastError}`);
   }
 
   /**
@@ -391,89 +351,56 @@ Please respond with accurate JSON:
                            (videoData.transcript || '').toString();
       const transcriptSample = transcriptText.substring(0, 1000);
       
-      // Check if this is a gravity-specific video
-      const isGravityVideo = videoData.title.toLowerCase().includes('gravity') || 
-                            videoData.title.toLowerCase().includes('how gravity works') ||
-                            transcriptSample.toLowerCase().includes('gravity') ||
-                            transcriptSample.toLowerCase().includes('gravitational');
+      // Let ChatGPT analyze content intelligently without manual categorization
       
-      const prompt = `You are a research librarian AI specializing in academic literature. Based on the following YouTube video content, suggest relevant academic papers, research studies, and scholarly articles that would provide deeper scientific backing or related research.
+      const prompt = `You are an expert research librarian AI with deep knowledge of academic literature across all fields. Analyze this YouTube video content and intelligently suggest 6-8 highly relevant academic papers that provide scientific depth and research context.
 
-VIDEO CONTENT:
+VIDEO CONTENT TO ANALYZE:
 Title: "${videoData.title}"
 Channel: "${videoData.channel}"
 Description: "${videoData.description || 'No description available'}"
-Transcript (first 1000 chars): "${transcriptSample}"
+Transcript Sample: "${transcriptSample}"
 
-${isGravityVideo ? `
-🎯 GRAVITY-SPECIFIC REQUEST DETECTED 🎯
-This video is about GRAVITY. Please prioritize papers that specifically study gravitational physics and how gravity works:
+INSTRUCTIONS:
+1. ANALYZE the content to understand the main topics, themes, and educational focus
+2. IDENTIFY the primary academic field(s) relevant to this content
+3. SUGGEST real, published academic papers that directly relate to the video's topics
+4. PRIORITIZE papers that would enhance understanding of the concepts discussed
+5. INCLUDE a mix of foundational works and recent research when appropriate
+6. FOCUS on papers that provide scientific backing or deeper academic context
 
-REQUIRED GRAVITY PAPERS TO INCLUDE:
-1. "Philosophiæ Naturalis Principia Mathematica" by Isaac Newton (1687) - The foundational work establishing universal gravitation
-2. "The Foundation of the General Theory of Relativity" by Albert Einstein (1916) - Gravity as spacetime curvature
-3. "Observation of Gravitational Waves from a Binary Black Hole Merger" by LIGO Scientific Collaboration (2016) - First detection of gravitational waves
-4. "Experimental Tests of General Relativity" by Clifford M. Will (2014) - Modern tests of gravity theory
+REQUIREMENTS:
+- All papers must be real and published (use your knowledge of actual academic literature)
+- Relevance scores should be 7-10 (only suggest highly relevant papers)
+- Include diverse perspectives and methodologies when applicable
+- Provide clear explanations of how each paper relates to the video content
+- Choose papers from reputable journals and well-known authors in the field
 
-Focus ONLY on papers that explain HOW GRAVITY WORKS, not general physics or other topics.
-` : ''}
-
-TASK: Generate 5-8 highly relevant academic paper suggestions that:
-1. Are real, published research papers (use your knowledge of actual papers)
-2. Directly relate to the video's main topics
-3. Would provide scientific backing or deeper academic context
-4. Include a mix of foundational papers and recent research
-5. Are from reputable journals and authors
-
-For each paper suggestion, provide:
-- Exact paper title (real papers only)
-- Author(s) name(s)  
-- Journal name
-- Publication year
-- Brief explanation of how it relates to the video content
-- Estimated relevance score (1-10)
-
-Respond with ONLY valid JSON in this format:
+OUTPUT FORMAT - Respond with ONLY valid JSON:
 {
-  "academicField": "primary field of study",
-  "videoSummary": "brief summary of video's academic content",
+  "academicField": "primary academic field",
+  "videoSummary": "concise summary of the video's academic content and themes",
   "papers": [
     {
       "title": "exact paper title",
-      "authors": ["author names"],
+      "authors": ["author1", "author2"],
       "journal": "journal name",
       "year": 2023,
-      "relevanceExplanation": "how this relates to the video",
+      "relevanceExplanation": "detailed explanation of how this paper relates to and enhances the video content",
       "relevanceScore": 9,
-      "doi": "10.1000/example-doi-if-known",
+      "doi": "10.xxxx/xxxxx (if known)",
       "keywords": ["keyword1", "keyword2", "keyword3"]
     }
   ]
 }`;
 
-      const result = await this.callOllama(prompt);
+      const result = await this.callChatGPT(prompt);
       
-      if (result && result.papers) {
-        console.log(`📚 Generated ${result.papers.length} academic paper suggestions`);
-        
-        // For gravity videos, validate that we got gravity-specific papers
-        if (isGravityVideo) {
-          const hasNewtonPrincipia = result.papers.some(paper => 
-            paper.title.toLowerCase().includes('principia') || 
-            paper.title.toLowerCase().includes('newton'));
-          const hasEinsteinGravity = result.papers.some(paper => 
-            paper.title.toLowerCase().includes('general relativity') ||
-            paper.title.toLowerCase().includes('foundation'));
-          
-          if (!hasNewtonPrincipia || !hasEinsteinGravity) {
-            console.warn('⚠️ LLM did not provide gravity-specific papers, using fallback');
-            return this.getFallbackAcademicSuggestions(videoData);
-          }
-        }
-        
+      if (result && result.papers && result.papers.length > 0) {
+        console.log(`✅ Generated ${result.papers.length} academic paper suggestions`);
         return result;
       } else {
-        console.warn('⚠️ No papers generated by LLM');
+        console.warn('⚠️ No papers generated by ChatGPT');
         return this.getFallbackAcademicSuggestions(videoData);
       }
       
@@ -484,113 +411,45 @@ Respond with ONLY valid JSON in this format:
   }
 
   /**
-   * Fallback academic suggestions when LLM fails
+   * Minimal fallback when ChatGPT is completely unavailable
    */
   getFallbackAcademicSuggestions(videoData) {
-    const title = (videoData.title || '').toLowerCase();
-    const transcriptText = typeof videoData.transcript === 'string' ? videoData.transcript : 
-                          (videoData.transcript || '').toString();
-    const transcript = transcriptText.toLowerCase();
+    console.log('🔄 Using minimal fallback (ChatGPT unavailable)...');
     
-    // Detect field based on keywords
-    let field = 'general';
-    let papers = [];
-    
-    if (title.includes('physics') || title.includes('gravity') || title.includes('einstein') || 
-        transcript.includes('quantum') || transcript.includes('relativity') || transcript.includes('gravity')) {
-      field = 'physics';
-      papers = [
-        {
-          title: "The Foundation of the General Theory of Relativity",
-          authors: ["Albert Einstein"],
-          journal: "Annalen der Physik",
-          year: 1916,
-          relevanceExplanation: "Einstein's foundational work on gravity and spacetime curvature",
-          relevanceScore: 9,
-          keywords: ["gravity", "general relativity", "spacetime", "physics"]
-        },
-        {
-          title: "Experimental Tests of General Relativity",
-          authors: ["Clifford M. Will"],
-          journal: "Living Reviews in Relativity",
-          year: 2014,
-          relevanceExplanation: "Comprehensive review of experimental evidence for Einstein's theory of gravity",
-          relevanceScore: 8,
-          keywords: ["gravity", "experimental physics", "general relativity"]
-        },
-        {
-          title: "On the Electrodynamics of Moving Bodies",
-          authors: ["Albert Einstein"],
-          journal: "Annalen der Physik",
-          year: 1905,
-          relevanceExplanation: "Foundational paper on special relativity and spacetime",
-          relevanceScore: 8,
-          keywords: ["relativity", "physics", "spacetime"]
-        },
-        {
-          title: "Gravitational Waves and the Theory of General Relativity",
-          authors: ["Kip S. Thorne"],
-          journal: "Reviews of Modern Physics",
-          year: 1987,
-          relevanceExplanation: "Theoretical foundation for gravitational wave physics",
-          relevanceScore: 7,
-          keywords: ["gravitational waves", "gravity", "general relativity"]
-        }
-      ];
-    } else if (title.includes('biology') || transcript.includes('evolution') || transcript.includes('dna')) {
-      field = 'biology';
-      papers = [
-        {
-          title: "On the Origin of Species",
-          authors: ["Charles Darwin"],
-          journal: "John Murray",
-          year: 1859,
-          relevanceExplanation: "Foundational work on evolutionary theory",
-          relevanceScore: 9,
-          keywords: ["evolution", "natural selection", "biology"]
-        },
-        {
-          title: "Molecular Structure of Nucleic Acids",
-          authors: ["J.D. Watson", "F.H.C. Crick"],
-          journal: "Nature",
-          year: 1953,
-          relevanceExplanation: "Discovery of DNA double helix structure",
-          relevanceScore: 8,
-          keywords: ["DNA", "molecular biology", "genetics"]
-        }
-      ];
-    } else if (title.includes('psychology') || transcript.includes('behavior') || transcript.includes('mind')) {
-      field = 'psychology';
-      papers = [
-        {
-          title: "The Principles of Psychology",
-          authors: ["William James"],
-          journal: "Henry Holt and Company",
-          year: 1890,
-          relevanceExplanation: "Foundational work in modern psychology",
-          relevanceScore: 8,
-          keywords: ["psychology", "consciousness", "behavior"]
-        }
-      ];
-    } else {
-      // General academic suggestions
-      papers = [
+    // Simple universal fallback when ChatGPT is unavailable
+    return {
+      academicField: 'interdisciplinary studies',
+      videoSummary: `Educational content related to "${videoData.title}" - academic papers suggested based on general educational value`,
+      confidenceLevel: 'low - fallback mode',
+      papers: [
         {
           title: "The Structure of Scientific Revolutions",
           authors: ["Thomas S. Kuhn"],
           journal: "University of Chicago Press",
           year: 1962,
-          relevanceExplanation: "Foundational work on how science progresses",
+          relevanceExplanation: "Foundational work on how scientific knowledge advances and paradigms shift",
           relevanceScore: 7,
-          keywords: ["science", "methodology", "paradigm"]
+          keywords: ["science", "methodology", "research", "knowledge"]
+        },
+        {
+          title: "Cosmos",
+          authors: ["Carl Sagan"],
+          journal: "Random House",
+          year: 1980,
+          relevanceExplanation: "Accessible introduction to scientific thinking and cosmic perspective",
+          relevanceScore: 8,
+          keywords: ["science", "education", "astronomy", "critical thinking"]
+        },
+        {
+          title: "A Brief History of Time", 
+          authors: ["Stephen Hawking"],
+          journal: "Bantam Books",
+          year: 1988,
+          relevanceExplanation: "Popular science work making complex physics accessible to general audiences",
+          relevanceScore: 7,
+          keywords: ["physics", "cosmology", "education", "science communication"]
         }
-      ];
-    }
-    
-    return {
-      academicField: field,
-      videoSummary: "Academic content analysis",
-      papers: papers
+      ]
     };
   }
 
