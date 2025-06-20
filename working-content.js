@@ -10,24 +10,24 @@ let currentVideoId;
 let uiElements = {}; // Store UI references for cleanup
 let useEnhancedDetection = true;
 
-// LLM-Enhanced Citation Detection - Integrated Version
+// ChatGPT-Enhanced Citation Detection - Integrated Version
 class LLMCitationDetector {
   constructor() {
     this.apiKey = null;
     this.citations = [];
     this.videoSummary = null;
     this.keyTopics = [];
-    this.provider = 'ollama';
+    this.provider = 'chatgpt';
   }
 
-  setAPIKey(key, provider = 'ollama') {
+  setAPIKey(key, provider = 'chatgpt') {
     this.apiKey = key;
     this.provider = provider;
     console.log(`🔑 API key set for ${provider}`);
   }
 
   async analyzeVideoContent(videoData) {
-    console.log('🤖 Starting LLM-enhanced analysis...');
+    console.log('🤖 Starting ChatGPT-enhanced analysis...');
     
     // Handle different input formats and extract comprehensive metadata
     let fullText, videoTitle, videoDescription, channelName, transcriptSegments;
@@ -68,7 +68,7 @@ class LLMCitationDetector {
       // Clean up the extracted data
       videoTitle = videoTitle.replace(/^\s*\|\s*/, '').trim(); // Remove leading pipe symbols
       channelName = channelName.replace(/^@/, '').trim(); // Remove @ symbols from channel names
-      videoDescription = videoDescription.substring(0, 1000); // Limit description length for LLM
+      videoDescription = videoDescription.substring(0, 1000); // Limit description length for ChatGPT
     } else {
       console.error('❌ Invalid video data provided:', videoData);
       fullText = '';
@@ -90,15 +90,15 @@ class LLMCitationDetector {
       console.warn('⚠️ Using fallback sample text - real transcript extraction failed!');
     }
     
-    // Always try LLM analysis first with multiple retry attempts
+    // Always try ChatGPT analysis first with multiple retry attempts
     let citations = [];
-    let llmSucceeded = false;
+    let chatGPTSucceeded = false;
     
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        console.log(`🤖 LLM analysis attempt ${attempt}/3...`);
+        console.log(`🤖 ChatGPT analysis attempt ${attempt}/3...`);
         
-        const analysis = await this.getLLMTopicAnalysis({
+        const analysis = await this.getChatGPTTopicAnalysis({
           title: videoTitle,
           description: videoDescription,
           channelName: channelName,
@@ -108,8 +108,8 @@ class LLMCitationDetector {
         if (analysis && (analysis.citationWorthy?.length > 0 || analysis.people?.length > 0 || analysis.concepts?.length > 0)) {
           citations = await this.generateTargetedCitations(analysis, fullText, transcriptSegments);
           if (citations.length > 0) {
-            console.log(`✅ LLM analysis succeeded on attempt ${attempt}: ${citations.length} citations found`);
-            llmSucceeded = true;
+            console.log(`✅ ChatGPT analysis succeeded on attempt ${attempt}: ${citations.length} citations found`);
+            chatGPTSucceeded = true;
             break;
           }
         }
@@ -120,38 +120,38 @@ class LLMCitationDetector {
         }
         
       } catch (error) {
-        console.log(`⚠️ LLM analysis attempt ${attempt} failed:`, error.message);
+        console.log(`⚠️ ChatGPT analysis attempt ${attempt} failed:`, error.message);
         if (attempt < 3) {
           await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second between attempts
         }
       }
     }
     
-    // If LLM failed completely, use enhanced mock analysis with full video metadata
-    if (!llmSucceeded) {
-      console.log('🔄 LLM analysis failed after 3 attempts, using metadata-enhanced mock analysis...');
+    // If ChatGPT failed completely, use enhanced mock analysis with full video metadata
+    if (!chatGPTSucceeded) {
+      console.log('🔄 ChatGPT analysis failed after 3 attempts, using metadata-enhanced mock analysis...');
       citations = this.getMetadataEnhancedAnalysis(fullText, videoTitle, channelName, videoDescription, transcriptSegments);
     }
     
-    // Ensure all citations are marked as LLM-enhanced
+    // Ensure all citations are marked as ChatGPT-enhanced
     citations.forEach(citation => {
-      citation.isLLMEnhanced = true;
-      citation.llmAnalysisAttempted = true;
-      citation.llmSucceeded = llmSucceeded;
+      citation.isAIEnhanced = true;
+      citation.chatGPTAnalysisAttempted = true;
+      citation.chatGPTSucceeded = chatGPTSucceeded;
     });
     
-    console.log(`🎯 Final analysis result: ${citations.length} AI-enhanced citations`);
+    console.log(`🎯 Final analysis result: ${citations.length} ChatGPT-enhanced citations`);
     console.log('📋 Sample citations:', citations.slice(0, 3));
     return citations;
   }
 
-  async getLLMTopicAnalysis(videoMetadata) {
-    // Force LLM analysis for testing - always try Ollama first
-    console.log('🤖 Attempting LLM analysis...');
+  async getChatGPTTopicAnalysis(videoMetadata) {
+    // Use ChatGPT for intelligent content analysis
+    console.log('🤖 Attempting ChatGPT analysis...');
     console.log(`🔧 API Key: ${this.apiKey ? 'Set' : 'Not set'}`);
     console.log(`🔧 Provider: ${this.provider}`);
     
-    // Always try LLM first, regardless of API key for local Ollama
+    // Always try ChatGPT for high-quality analysis
     try {
       const maxTranscriptLength = 6000;
       const transcript = videoMetadata.transcript.length > maxTranscriptLength ? 
@@ -262,17 +262,17 @@ Please respond with accurate JSON:
   "transcriptQuality": "clear|unclear|incomplete"
 }`;
 
-      console.log('🚀 Sending analysis request to LLM...');
+      console.log('🚀 Sending analysis request to ChatGPT...');
       console.log(`📤 Prompt length: ${prompt.length} characters`);
       console.log(`📤 Transcript being sent: "${transcript.substring(0, 500)}..."`);
       
       const result = await this.callChatGPT(prompt);
-      console.log('📥 LLM Response received:', result);
+      console.log('📥 ChatGPT Response received:', result);
       return result;
       
     } catch (error) {
-      console.error('❌ LLM API error:', error);
-      console.log('🔄 Falling back to mock analysis due to LLM error');
+      console.error('❌ ChatGPT API error:', error);
+      console.log('🔄 Falling back to mock analysis due to ChatGPT error');
       return this.getMockTopicAnalysis(videoMetadata);
     }
   }
@@ -847,7 +847,7 @@ OUTPUT FORMAT - Respond with ONLY valid JSON:
       return b.confidence - a.confidence;
     });
     
-    console.log(`🎯 Generated ${uniqueCitations.length} LLM-enhanced citations (after validation filtering)`);
+            console.log(`🎯 Generated ${uniqueCitations.length} ChatGPT-enhanced citations (after validation filtering)`);
     
     // Log validation statistics
     const validatedCitations = uniqueCitations.filter(c => c.validationScore !== undefined);
@@ -4131,32 +4131,31 @@ async function loadAcademicPapers() {
       return;
     }
     
-    // For now, let's test with fallback suggestions while debugging LLM issues
-    const llmDetector = new LLMCitationDetector();
+    // Use ChatGPT for intelligent academic paper suggestions
+    const chatGPTDetector = new LLMCitationDetector();
     
-    // Try LLM first, but use fallback for reliability
+    // Try ChatGPT first, with minimal fallback
     let academicSuggestions;
     try {
-      // Check if LLM_CONFIG is available
-      if (typeof LLM_CONFIG !== 'undefined' && LLM_CONFIG.openai && LLM_CONFIG.openai.apiKey && LLM_CONFIG.openai.apiKey !== 'REPLACE_WITH_YOUR_OPENAI_API_KEY') {
-        const config = LLM_CONFIG;
-        llmDetector.setAPIKey(config.openai.apiKey, 'openai', config.openai.model);
+      // Check if API key is available
+      if (window.LOCAL_ENV?.OPENAI_API_KEY) {
+        chatGPTDetector.setAPIKey(window.LOCAL_ENV.OPENAI_API_KEY, 'chatgpt');
         
-        console.log('🤖 Attempting LLM academic paper generation...');
-        academicSuggestions = await llmDetector.generateAcademicPaperSuggestions(videoData);
+        console.log('🤖 Attempting ChatGPT academic paper generation...');
+        academicSuggestions = await chatGPTDetector.generateAcademicPaperSuggestions(videoData);
       } else {
-        console.warn('⚠️ LLM_CONFIG not available or API key not set, using fallback');
-        academicSuggestions = llmDetector.getFallbackAcademicSuggestions(videoData);
+        console.warn('⚠️ OpenAI API key not available, using minimal fallback');
+        academicSuggestions = chatGPTDetector.getFallbackAcademicSuggestions(videoData);
       }
-    } catch (llmError) {
-      console.warn('⚠️ LLM failed, using fallback:', llmError);
-      academicSuggestions = llmDetector.getFallbackAcademicSuggestions(videoData);
+    } catch (chatGPTError) {
+      console.warn('⚠️ ChatGPT failed, using minimal fallback:', chatGPTError);
+      academicSuggestions = chatGPTDetector.getFallbackAcademicSuggestions(videoData);
     }
     
-    // If LLM didn't return good results, use fallback
+    // If ChatGPT didn't return good results, use minimal fallback
     if (!academicSuggestions || !academicSuggestions.papers || academicSuggestions.papers.length === 0) {
-      console.log('🔄 Using fallback academic suggestions...');
-      academicSuggestions = llmDetector.getFallbackAcademicSuggestions(videoData);
+      console.log('🔄 Using minimal fallback academic suggestions...');
+      academicSuggestions = chatGPTDetector.getFallbackAcademicSuggestions(videoData);
     }
     
     if (academicSuggestions && academicSuggestions.papers && academicSuggestions.papers.length > 0) {
@@ -4867,7 +4866,7 @@ async function generateSmartVideoRecommendations(videoData) {
     const detector = window.detector || llmDetector;
     
     if (!detector) {
-      console.error('❌ LLM detector not available for video recommendations');
+      console.error('❌ ChatGPT detector not available for video recommendations');
       return null;
     }
     
@@ -6055,7 +6054,7 @@ async function analyzeCurrentVideo() {
       
       let finalCitations = [];
       
-      // Try LLM-enhanced detection first
+      // Try ChatGPT-enhanced detection first
       if (useEnhancedDetection && llmDetector) {
         try {
           // Update status to show AI analysis with better messaging
@@ -6076,17 +6075,17 @@ async function analyzeCurrentVideo() {
             `;
           }
           
-          console.log('🤖 Using LLM-enhanced citation detection...');
+          console.log('🤖 Using ChatGPT-enhanced citation detection...');
           const llmCitations = await llmDetector.analyzeVideoContent(transcriptData);
           
           if (llmCitations && llmCitations.length > 0) {
-            console.log(`🎯 LLM analysis successful: ${llmCitations.length} citations found`);
+            console.log(`🎯 ChatGPT analysis successful: ${llmCitations.length} citations found`);
             finalCitations = llmCitations;
             
-            // Mark as LLM-enhanced in UI
+            // Mark as ChatGPT-enhanced in UI
             finalCitations.forEach(citation => {
-              if (!citation.isLLMEnhanced) {
-                citation.isLLMEnhanced = true;
+              if (!citation.isAIEnhanced) {
+                citation.isAIEnhanced = true;
               }
             });
             
@@ -6101,11 +6100,11 @@ async function analyzeCurrentVideo() {
               setTimeout(() => statusDiv.style.display = 'none', 2000);
             }
           } else {
-            throw new Error('LLM analysis returned no results');
+            throw new Error('ChatGPT analysis returned no results');
           }
           
         } catch (error) {
-          console.log('⚠️ LLM analysis failed, falling back to standard detection:', error.message);
+          console.log('⚠️ ChatGPT analysis failed, falling back to standard detection:', error.message);
           finalCitations = await performStandardDetection(transcriptData);
         }
       } else {
@@ -6821,8 +6820,8 @@ function displaySearchResults(query, transcriptResults, matchingCitations) {
 
 // Create citation card HTML
 function createCitationCard(citation, index, typeIcon, typeColor, confidenceColor) {
-  // Add AI indicator for LLM-enhanced citations
-  const aiIndicator = citation.isLLMEnhanced ? `
+      // Add AI indicator for ChatGPT-enhanced citations
+    const aiIndicator = citation.isAIEnhanced ? `
     <div style="
       position: absolute;
       top: 12px;
@@ -7189,14 +7188,14 @@ async function init() {
   // Initialize detector first
   detector = new EnhancedCitationDetector();
   
-  // Initialize LLM Citation Detector
+  // Initialize ChatGPT Citation Detector
   try {
     llmDetector = new LLMCitationDetector();
     
     // Check if we have an OpenAI API key
     if (window.LOCAL_ENV?.OPENAI_API_KEY) {
       llmDetector.setAPIKey(window.LOCAL_ENV.OPENAI_API_KEY, 'chatgpt');
-      console.log('🤖 LLM Citation Detector initialized with ChatGPT');
+      console.log('🤖 ChatGPT Citation Detector initialized successfully');
     } else {
       console.log('⚠️ No OpenAI API key found in LOCAL_ENV');
       useEnhancedDetection = false;
@@ -7206,7 +7205,7 @@ async function init() {
     window.detector = llmDetector;
     
   } catch (error) {
-    console.log('⚠️ LLM detector failed to initialize:', error.message);
+    console.log('⚠️ ChatGPT detector failed to initialize:', error.message);
     useEnhancedDetection = false;
   }
   
