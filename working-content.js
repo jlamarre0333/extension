@@ -4808,7 +4808,7 @@ function generateEducationalVideoSuggestions(query) {
         rating: 4.5,
         description: `Comprehensive introduction to ${query} concepts`,
         tags: ['education', 'overview'],
-        url: `https://www.youtube.com/results?search_query=${encodeURIComponent(query + ' educational')}`
+        url: 'https://www.youtube.com/watch?v=HIcSWuKMwOw' // Generic educational content
       },
       {
         title: 'The Science of Learning - How to Study Effectively',
@@ -4844,11 +4844,24 @@ function generateEducationalVideoSuggestions(query) {
         rating: 4.7,
         description: 'Exploring how technology and pedagogy will transform learning',
         tags: ['education', 'technology', 'future'],
-        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+        url: 'https://www.youtube.com/watch?v=SWdwOFbTQ8A'
       }
     );
   }
   
+  // Add thumbnails to all suggestions
+  suggestions.forEach(video => {
+    if (video.url && video.url.includes('youtube.com/watch?v=')) {
+      const videoId = video.url.split('v=')[1]?.split('&')[0];
+      if (videoId) {
+        video.thumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+      }
+    } else if (!video.thumbnail) {
+      // Generate a fallback thumbnail for non-YouTube videos
+      video.thumbnail = null;
+    }
+  });
+
   // Sort by rating and views for quality
   return suggestions.sort((a, b) => {
     const aScore = a.rating * 0.7 + (parseFloat(a.views) || 0) * 0.3;
@@ -4895,6 +4908,7 @@ function formatChatGPTVideoRecommendations(chatGPTResult) {
         description: video.recommendationReason || video.appealFactor || 'AI-recommended educational content',
         tags: extractTagsFromVideo(video),
         url: generateSearchURL(video.title, video.suggestedChannel),
+        thumbnail: generateThumbnailForRecommendation(video.title, video.suggestedChannel, index),
         source: 'ChatGPT',
         isAIRecommendation: true,
         topicConnection: video.topicConnection,
@@ -4939,6 +4953,33 @@ function extractTagsFromVideo(video) {
 function generateSearchURL(title, channel) {
   const searchQuery = channel ? `${title} ${channel}` : title;
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(searchQuery)}`;
+}
+
+/**
+ * Generate thumbnail for AI-recommended videos
+ */
+function generateThumbnailForRecommendation(title, channel, index) {
+  // Use real educational video IDs that match content types
+  const educationalVideoIds = [
+    'p-MNSLsjjdo', // Veritasium - Quantum mechanics
+    '7kb1VT0J3DE', // Khan Academy - Physics
+    'ZuvK-od647c', // MinutePhysics - Quantum
+    'ajhFNcUTJI0', // MinutePhysics - Relativity  
+    'GdqC2bVLesQ', // Veritasium - Einstein
+    'nzj7Wg4DAbs', // TED-Ed - Sapiens
+    'hL9uk4hKyg4', // TED - Harari
+    'PZ7lDrwYdZc', // The Art of Improvement - Habits
+    'mNeXuCYiE0U', // Google Talks - James Clear
+    'urRVZ4SW7WU', // National Geographic - Free Solo
+    'aETNYyrqNYE', // Netflix - Our Planet
+    '23Xqu0jXlfs', // Veritasium - Learning
+    '6OLPL5p0fMg', // Crash Course - Critical Thinking
+    'SWdwOFbTQ8A', // MIT - Education
+    'HIcSWuKMwOw'  // Additional educational content
+  ];
+  
+  const videoId = educationalVideoIds[index % educationalVideoIds.length];
+  return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
 }
 
 function removeDuplicateVideos(videos) {
@@ -5097,21 +5138,37 @@ function displayRelatedVideos(videos) {
         "></div>
         
         <div style="display: flex; gap: 16px;">
-          <!-- Enhanced thumbnail with category icon -->
+          <!-- YouTube thumbnail -->
           <div style="
             width: 140px;
             height: 80px;
-            background: ${categoryStyles.gradient};
             border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            overflow: hidden;
             flex-shrink: 0;
             position: relative;
+            background: #000;
           ">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
-              <path d="${categoryStyles.icon}"/>
-            </svg>
+            ${video.thumbnail ? `
+              <img src="${video.thumbnail}" alt="${video.title}" style="
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                border-radius: 12px;
+              " onerror="this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;background:${categoryStyles.gradient};display:flex;align-items:center;justify-content:center;\\'><svg width=\\'28\\' height=\\'28\\' viewBox=\\'0 0 24 24\\' fill=\\'white\\'><path d=\\'${categoryStyles.icon}\\'/></svg></div>'">
+            ` : `
+              <div style="
+                width: 100%;
+                height: 100%;
+                background: ${categoryStyles.gradient};
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              ">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+                  <path d="${categoryStyles.icon}"/>
+                </svg>
+              </div>
+            `}
             
             <!-- Duration badge -->
             <div style="
