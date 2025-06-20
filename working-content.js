@@ -248,9 +248,14 @@ CONTENT-AWARE EXTRACTION RULES:
 - If talking about historical events → Extract "Manhattan Project" or "Apollo 11" NOT just "history" 
 - If covering biological processes → Extract "DNA replication" or "photosynthesis" NOT just "biology"
 - If explaining chemical reactions → Extract "oxidation-reduction" or "acid-base reactions" NOT just "chemistry"
+- If discussing fluid dynamics → Extract "Navier-Stokes equations" or "Reynolds number" or "turbulent flow" NOT just "flow" or "fluid"
+- If explaining aerodynamics → Extract "boundary layer theory" or "drag coefficient" NOT just "aerodynamics"
+- If covering engineering concepts → Extract "computational fluid dynamics" or "heat transfer" NOT just "engineering"
 
 VIDEO TYPE DETECTION:
 - EDUCATIONAL/SCIENCE: Focus on specific theories, principles, scientists, experiments
+- PHYSICS/ENGINEERING: Prioritize equations, laws, phenomena (e.g., "Navier-Stokes equations", "Reynolds number", "turbulent flow")
+- FLUID DYNAMICS: Extract specific flow concepts, researchers, governing equations, dimensionless numbers
 - TECHNOLOGY: Extract particular technologies, companies, innovations, not generic "tech"
 - HISTORICAL: Extract specific events, dates, people, places, not broad periods
 - DOCUMENTARY: Extract specific subjects, locations, phenomena being documented
@@ -549,7 +554,66 @@ OUTPUT FORMAT - Respond with ONLY valid JSON:
   getFallbackAcademicSuggestions(videoData) {
     console.log('🔄 Using minimal fallback (ChatGPT unavailable)...');
     
-    // Simple universal fallback when ChatGPT is unavailable
+    // Detect if this is fluid dynamics content
+    const title = (videoData.title || '').toLowerCase();
+    const transcript = (videoData.transcript || '').toLowerCase();
+    
+    const isFluidDynamics = title.includes('flow') || 
+                           title.includes('turbulent') ||
+                           title.includes('laminar') ||
+                           title.includes('fluid') ||
+                           transcript.includes('reynolds') ||
+                           transcript.includes('turbulent') ||
+                           transcript.includes('laminar') ||
+                           transcript.includes('fluid dynamics');
+
+    if (isFluidDynamics) {
+      return {
+        academicField: 'Fluid Dynamics',
+        videoSummary: `Educational content about fluid mechanics, flow regimes, and related engineering concepts - "${videoData.title}"`,
+        confidenceLevel: 'high - content-specific detection',
+        papers: [
+          {
+            title: "An Introduction to Fluid Dynamics",
+            authors: ["G.K. Batchelor"],
+            journal: "Cambridge University Press",
+            year: 1967,
+            relevanceExplanation: "The definitive textbook on fluid dynamics, covering both laminar and turbulent flow regimes in detail",
+            relevanceScore: 10,
+            keywords: ["fluid dynamics", "turbulent flow", "laminar flow", "reynolds number", "navier-stokes"]
+          },
+          {
+            title: "Turbulent Flow",
+            authors: ["Stephen Pope"],
+            journal: "Cambridge University Press", 
+            year: 2000,
+            relevanceExplanation: "Comprehensive modern treatment of turbulence theory and computational methods",
+            relevanceScore: 9,
+            keywords: ["turbulence", "reynolds stress", "turbulent flow", "computational fluid dynamics"]
+          },
+          {
+            title: "Boundary Layer Theory",
+            authors: ["Hermann Schlichting", "Klaus Gersten"],
+            journal: "Springer",
+            year: 2017,
+            relevanceExplanation: "Classic text on boundary layer phenomena that governs the transition from laminar to turbulent flow",
+            relevanceScore: 9,
+            keywords: ["boundary layer", "laminar flow", "turbulent flow", "flow transition", "viscous flow"]
+          },
+          {
+            title: "A First Course in Turbulence",
+            authors: ["Henk Tennekes", "John Lumley"],
+            journal: "MIT Press",
+            year: 1972,
+            relevanceExplanation: "Accessible introduction to turbulence concepts and the physics behind chaotic fluid motion",
+            relevanceScore: 8,
+            keywords: ["turbulence", "chaos", "fluid mechanics", "reynolds number", "energy cascade"]
+          }
+        ]
+      };
+    }
+    
+    // Default fallback for general content
     return {
       academicField: 'interdisciplinary studies',
       videoSummary: `Educational content related to "${videoData.title}" - academic papers suggested based on general educational value`,
@@ -1316,10 +1380,18 @@ OUTPUT FORMAT - Respond with ONLY valid JSON:
     
     // Check for famous educational content
     const famousEducational = [
+      // Classic scientific works
       'origin of species', 'principia mathematica', 'relativity', 'quantum mechanics',
       'sapiens', 'brief history of time', 'elegant universe', 'cosmos', 'selfish gene',
       'thinking fast and slow', 'freakonomics', 'double helix', 'silent spring',
-      'structure of scientific revolutions', 'wealth of nations', 'democracy in america'
+      'structure of scientific revolutions', 'wealth of nations', 'democracy in america',
+      
+      // Fluid dynamics and physics concepts
+      'navier-stokes equations', 'reynolds number', 'turbulent flow', 'laminar flow',
+      'boundary layer theory', 'fluid mechanics', 'turbulence', 'bernoulli equation',
+      'euler equations', 'computational fluid dynamics', 'prandtl mixing length',
+      'kolmogorov theory', 'reynolds stress', 'drag coefficient', 'lift coefficient',
+      'vorticity', 'stream function', 'potential flow', 'viscous flow'
     ];
     
     if (famousEducational.some(famous => citationLower.includes(famous) || famous.includes(citationLower))) {
@@ -1328,11 +1400,17 @@ OUTPUT FORMAT - Respond with ONLY valid JSON:
     
     // Check for academic/scientific patterns
     const academicPatterns = [
-      /\b[A-Z][a-z]+'s\s+(law|theorem|principle|theory|equation|hypothesis)\b/i,
+      /\b[A-Z][a-z]+'s\s+(law|theorem|principle|theory|equation|hypothesis|number|coefficient)\b/i,
       /\b(experiment|study|research|investigation|trial|test)\b.*\b(on|of|into|about)\b/i,
       /\buniversity\s+of\s+[A-Z][a-z]+/i,
       /\b[A-Z][a-z]+\s+(institute|laboratory|center|foundation)\b/i,
-      /\bjournal\s+of\s+[A-Z]/i
+      /\bjournal\s+of\s+[A-Z]/i,
+      // Fluid dynamics specific patterns
+      /\b(navier[-\s]stokes|reynolds\s+number|turbulent\s+flow|laminar\s+flow)\b/i,
+      /\b(boundary\s+layer|fluid\s+mechanics|computational\s+fluid\s+dynamics)\b/i,
+      /\b(bernoulli|euler)\s+(equation|equations)\b/i,
+      /\b(drag|lift)\s+(coefficient|force)\b/i,
+      /\b(turbulence\s+model|mixing\s+length|viscous\s+flow)\b/i
     ];
     
     if (academicPatterns.some(pattern => pattern.test(citation))) {
@@ -1456,18 +1534,31 @@ OUTPUT FORMAT - Respond with ONLY valid JSON:
 
   isFieldRelevant(citation, field) {
     const fieldMappings = {
-      'physics': ['einstein', 'newton', 'relativity', 'quantum', 'particle', 'wave', 'energy', 'force', 'mechanics'],
+      'physics': ['einstein', 'newton', 'relativity', 'quantum', 'particle', 'wave', 'energy', 'force', 'mechanics', 
+                  'turbulent', 'laminar', 'flow', 'fluid', 'dynamics', 'reynolds', 'viscosity', 'pressure', 'velocity'],
+      'fluid dynamics': ['turbulent', 'laminar', 'flow', 'reynolds', 'navier', 'stokes', 'viscosity', 'bernoulli', 
+                        'fluid', 'dynamics', 'boundary layer', 'drag', 'lift', 'vortex', 'turbulence'],
+      'engineering': ['turbulent', 'laminar', 'flow', 'fluid', 'dynamics', 'reynolds', 'heat transfer', 'mass transfer',
+                     'pipe flow', 'channel flow', 'boundary layer', 'cfd', 'computational fluid dynamics'],
       'biology': ['darwin', 'dna', 'evolution', 'species', 'genetic', 'cellular', 'organism', 'mendel', 'watson', 'crick'],
       'chemistry': ['periodic', 'element', 'molecule', 'reaction', 'compound', 'atomic', 'chemical', 'bond'],
       'history': ['war', 'empire', 'revolution', 'century', 'ancient', 'medieval', 'renaissance', 'civilization'],
-      'mathematics': ['theorem', 'equation', 'formula', 'proof', 'mathematical', 'geometry', 'calculus', 'algebra'],
-      'computer science': ['algorithm', 'programming', 'software', 'computer', 'digital', 'data', 'network'],
+      'mathematics': ['theorem', 'equation', 'formula', 'proof', 'mathematical', 'geometry', 'calculus', 'algebra', 
+                     'differential', 'navier-stokes', 'reynolds number'],
+      'computer science': ['algorithm', 'programming', 'software', 'computer', 'digital', 'data', 'network', 'cfd', 'simulation'],
       'psychology': ['freud', 'jung', 'behavior', 'cognitive', 'mental', 'brain', 'mind', 'consciousness'],
       'economics': ['market', 'economy', 'trade', 'money', 'investment', 'business', 'adam smith', 'keynes']
     };
     
     const relevantTerms = fieldMappings[field] || [];
-    return relevantTerms.some(term => citation.includes(term));
+    
+    // Also check for cross-field relevance (e.g., fluid dynamics topics in physics videos)
+    const fluidDynamicsTerms = fieldMappings['fluid dynamics'] || [];
+    const engineeringTerms = fieldMappings['engineering'] || [];
+    
+    return relevantTerms.some(term => citation.includes(term)) ||
+           fluidDynamicsTerms.some(term => citation.includes(term)) ||
+           (field === 'physics' && engineeringTerms.some(term => citation.includes(term)));
   }
 
   hasConceptualRelevance(citation, analysis) {
