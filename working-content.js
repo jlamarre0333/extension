@@ -257,7 +257,71 @@ Please respond with accurate JSON:
   "concepts": ["specific academic concepts mentioned by name"],
   "products": ["specific products discussed"],
   "timeContext": "ancient|medieval|renaissance|industrial|modern|contemporary|future|unclear",
-  "citationWorthy": ["3-5 most specific, researchable items from transcript"],
+  "citationWorthy": [
+    {
+      "item": "specific item name",
+      "relevance": "why this matters to the video topic",
+      "connection": "how it connects to the main discussion",
+      "importance": "high|medium|low",
+      "context": "brief explanation of what this adds to understanding"
+    }
+  ],
+  "people": [
+    {
+      "name": "Full Name",
+      "relevance": "why this person matters in this context",
+      "role": "their significance or contribution mentioned"
+    }
+  ],
+  "places": [
+    {
+      "name": "Specific Location",
+      "relevance": "why this location is important to the topic",
+      "context": "what happened there or why it's mentioned"
+    }
+  ],
+  "concepts": [
+    {
+      "name": "Named Theory or Principle",
+      "relevance": "why this concept is key to understanding",
+      "explanation": "brief description of what it means"
+    }
+  ],
+  "companies": [
+    {
+      "name": "Company Name",
+      "relevance": "why this company is mentioned",
+      "context": "their role in the topic being discussed"
+    }
+  ],
+  "technologies": [
+    {
+      "name": "Specific Technology Name",
+      "relevance": "why this technology matters",
+      "impact": "how it relates to the main topic"
+    }
+  ],
+  "historicalEvents": [
+    {
+      "name": "Specific Historical Event",
+      "relevance": "why this event is significant here",
+      "connection": "how it relates to the current discussion"
+    }
+  ],
+  "books": [
+    {
+      "title": "Exact Book Title",
+      "relevance": "why this book is recommended or mentioned",
+      "connection": "how it supports the video's content"
+    }
+  ],
+  "products": [
+    {
+      "name": "Specific Product Name",
+      "relevance": "why this product is discussed",
+      "context": "its role in the topic"
+    }
+  ],
   "confidenceLevel": "high|medium|low",
   "transcriptQuality": "clear|unclear|incomplete"
 }`;
@@ -751,18 +815,28 @@ OUTPUT FORMAT - Respond with ONLY valid JSON:
     // Process citation-worthy items first (highest priority)
     if (analysis.citationWorthy && analysis.citationWorthy.length > 0) {
       for (const item of analysis.citationWorthy) {
-        const accurateTimestamp = this.findAccurateTimestamp(item, transcriptSegments);
+        // Handle both old array format and new object format
+        const citationItem = typeof item === 'string' ? { item: item } : item;
+        const itemName = citationItem.item || citationItem.name || item;
+        
+        const accurateTimestamp = this.findAccurateTimestamp(itemName, transcriptSegments);
         citations.push({
-          title: item,
-          type: this.inferCitationType(item, analysis),
+          title: itemName,
+          type: this.inferCitationType(itemName, analysis),
           confidence: baseConfidence,
           source: 'llm_priority',
           timestamp: accurateTimestamp,
           llmContext: `${analysis.summary} | Academic field: ${analysis.academicField || 'general'}`,
           videoType: analysis.videoType || 'educational',
-          priority: 'high',
+          priority: citationItem.importance || 'high',
           author: null,
-          verified: true
+          verified: true,
+          // Enhanced context information
+          relevance: citationItem.relevance || `Key concept in ${analysis.academicField || 'educational'} content`,
+          connection: citationItem.connection || 'Directly discussed in the video',
+          context: citationItem.context || 'Important for understanding the topic',
+          importance: citationItem.importance || 'high',
+          whyItMatters: this.generateWhyItMatters(itemName, analysis)
         });
       }
     }
@@ -801,13 +875,17 @@ OUTPUT FORMAT - Respond with ONLY valid JSON:
     for (const [category, type] of Object.entries(categoryMappings)) {
       if (analysis[category]) {
         for (const item of analysis[category]) {
+          // Handle both old array format and new object format
+          const citationItem = typeof item === 'string' ? { name: item } : item;
+          const itemName = citationItem.name || citationItem.title || citationItem.item || item;
+          
           // Validate citation against transcript content
-          const validationScore = this.validateCitationAccuracy(item, fullText, analysis);
+          const validationScore = this.validateCitationAccuracy(itemName, fullText, analysis);
           
           if (validationScore >= 0.8) { // Only include citations with very high validation scores
-            const accurateTimestamp = this.findAccurateTimestamp(item, transcriptSegments);
+            const accurateTimestamp = this.findAccurateTimestamp(itemName, transcriptSegments);
             citations.push({
-              title: item,
+              title: itemName,
               type: type,
               confidence: Math.min(0.95, 0.7 + (validationScore * 0.25)), // Dynamic confidence based on validation
               source: 'llm_analysis',
@@ -817,10 +895,16 @@ OUTPUT FORMAT - Respond with ONLY valid JSON:
               priority: validationScore > 0.8 ? 'high' : 'normal',
               author: null,
               verified: true,
-              validationScore: validationScore
+              validationScore: validationScore,
+              // Enhanced context information
+              relevance: citationItem.relevance || this.generateRelevanceExplanation(itemName, type, analysis),
+              connection: citationItem.connection || citationItem.context || this.generateConnectionExplanation(itemName, type),
+              context: citationItem.explanation || citationItem.context || this.generateContextExplanation(itemName, type),
+              importance: citationItem.importance || 'medium',
+              whyItMatters: this.generateWhyItMatters(itemName, analysis, type)
             });
           } else {
-            console.log(`🚫 Filtered out low-accuracy citation: "${item}" (score: ${validationScore.toFixed(2)})`);
+            console.log(`🚫 Filtered out low-accuracy citation: "${itemName}" (score: ${validationScore.toFixed(2)})`);
           }
         }
       }
@@ -858,6 +942,81 @@ OUTPUT FORMAT - Respond with ONLY valid JSON:
     }
     
     return uniqueCitations;
+  }
+
+  // Helper functions for generating context explanations
+  generateWhyItMatters(itemName, analysis, type = null) {
+    const field = analysis.academicField || 'educational';
+    const videoType = analysis.videoType || 'educational';
+    
+    if (type === 'person') {
+      return `Understanding ${itemName}'s contributions helps explain the key concepts discussed in this ${field} content.`;
+    } else if (type === 'place') {
+      return `${itemName} is significant to this topic because of its role in the events or research being discussed.`;
+    } else if (type === 'book') {
+      return `This book provides deeper insights into the ${field} concepts explored in the video.`;
+    } else if (type === 'technology') {
+      return `${itemName} represents a key technological advancement relevant to understanding this topic.`;
+    } else if (type === 'event') {
+      return `This historical event shaped the development of ideas discussed in the video.`;
+    } else {
+      return `This ${type || 'concept'} is central to understanding the main themes explored in this ${videoType} content.`;
+    }
+  }
+
+  generateRelevanceExplanation(itemName, type, analysis) {
+    const field = analysis.academicField || 'this field';
+    
+    switch (type) {
+      case 'person':
+        return `Key figure in ${field} whose work is directly discussed`;
+      case 'place':
+        return `Important location where significant events in ${field} occurred`;
+      case 'book':
+        return `Essential reading for understanding ${field} concepts mentioned`;
+      case 'technology':
+        return `Breakthrough technology that exemplifies principles discussed`;
+      case 'event':
+        return `Pivotal moment that shaped developments in ${field}`;
+      case 'company':
+        return `Organization that plays a crucial role in the topic being explored`;
+      default:
+        return `Core concept essential for understanding the video's main themes`;
+    }
+  }
+
+  generateConnectionExplanation(itemName, type) {
+    switch (type) {
+      case 'person':
+        return `Their discoveries and ideas form the foundation of concepts discussed`;
+      case 'place':
+        return `Where important research, events, or developments took place`;
+      case 'book':
+        return `Provides the theoretical framework or detailed explanations referenced`;
+      case 'technology':
+        return `Demonstrates practical applications of theories being explained`;
+      case 'event':
+        return `Historical context that led to current understanding`;
+      default:
+        return `Directly mentioned and explained as part of the main discussion`;
+    }
+  }
+
+  generateContextExplanation(itemName, type) {
+    switch (type) {
+      case 'person':
+        return `Learn about their life, discoveries, and impact on the field`;
+      case 'place':
+        return `Understand the historical and geographical significance`;
+      case 'book':
+        return `Explore detailed explanations and extended analysis of these topics`;
+      case 'technology':
+        return `Discover how this innovation works and its broader implications`;
+      case 'event':
+        return `Understand the causes, effects, and historical importance`;
+      default:
+        return `Dive deeper into this concept and its applications`;
+    }
   }
 
   findAccurateTimestamp(citationTitle, transcriptSegments) {
@@ -6986,6 +7145,72 @@ function createCitationCard(citation, index, typeIcon, typeColor, confidenceColo
           color: #64748b;
           font-style: italic;
         ">by ${citation.author}</p>
+      ` : ''}
+      
+      ${citation.relevance || citation.whyItMatters ? `
+        <div style="
+          background: linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #f59e0b 100%);
+          border: 1px solid rgba(245, 158, 11, 0.2);
+          border-radius: 12px;
+          padding: 12px;
+          margin: 12px 0;
+          position: relative;
+          overflow: hidden;
+        ">
+          <div style="
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #f59e0b, #d97706);
+          "></div>
+          
+          <div style="
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+          ">
+            <span style="font-size: 16px; margin-right: 8px;">💡</span>
+            <span style="
+              font-size: 12px;
+              font-weight: 700;
+              color: #92400e;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            ">Why This Matters</span>
+          </div>
+          
+          <div style="
+            font-size: 13px;
+            color: #92400e;
+            line-height: 1.5;
+            font-weight: 500;
+          ">${citation.whyItMatters || citation.relevance}</div>
+          
+          ${citation.connection ? `
+            <div style="
+              margin-top: 10px;
+              padding-top: 10px;
+              border-top: 1px solid rgba(245, 158, 11, 0.3);
+              font-size: 12px;
+              color: #a16207;
+              font-style: italic;
+            ">
+              <span style="font-weight: 600;">Connection:</span> ${citation.connection}
+            </div>
+          ` : ''}
+          
+          ${citation.context && citation.context !== citation.whyItMatters ? `
+            <div style="
+              margin-top: 8px;
+              font-size: 12px;
+              color: #a16207;
+            ">
+              <span style="font-weight: 600;">Learn more:</span> ${citation.context}
+            </div>
+          ` : ''}
+        </div>
       ` : ''}
       
       ${citation.timestamp !== undefined ? `

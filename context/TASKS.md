@@ -3,6 +3,7 @@
 ## Doing  
 - [ ] Debug and fix timestamp extraction from YouTube transcript panel to resolve "Jump to 0:00" issue
 - [ ] Test timestamp matching accuracy with various YouTube videos with different transcript sources
+- [x] Add citation context and relevance explanations - show WHY each citation matters
 - [x] Add real YouTube thumbnails to video recommendations instead of placeholder images
 - [x] Make AI analysis more robust and consistent across all YouTube videos
 - [x] Add retry logic and enhanced error handling for LLM API calls
